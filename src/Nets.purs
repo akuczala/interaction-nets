@@ -5,8 +5,7 @@ module Nets
   , Tree(..)
   , TreePair
   , VarLabel
-  , annihilate
-  , fixedPoint
+  , isomorphic
   , makeDelta
   , makeGamma
   , makePair
@@ -18,15 +17,17 @@ module Nets
 
 import Prelude
 
-import Control.Monad.State (State, get, modify, runState)
+import Control.Monad.State (State, get, gets, modify, modify_, runState)
 import Data.Array (filter, find)
 import Data.Foldable (oneOfMap)
-import Data.List.Lazy as L
+import Data.Map (Map)
+import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe, isNothing)
 import Data.Set (Set)
 import Data.Set as S
 import Data.Tuple (Tuple, fst)
 import Lex (succ)
+import Utils (SymmMap, symmInsert)
 
 type VarLabel = String
 type Pair a b = { fst :: a, snd :: b }
@@ -100,12 +101,10 @@ addVarsFromTree (Delta d) = do
 varGen :: String -> String
 varGen x = succ x
 
-thing2 :: VarLabel -> (Set VarLabel) -> VarLabel
-thing2 x s = go x
+findNextVar :: VarLabel -> (Set VarLabel) -> VarLabel
+findNextVar x s = go x
   where
   go x = if S.member x s then go (varGen x) else x
-
--- thing2 x s = iterateUntil (\v -> S.member v s) (pure x)
 
 newVar :: State { vars :: (Set VarLabel), lastGen :: String } VarLabel
 newVar = do
@@ -114,7 +113,7 @@ newVar = do
   where
   f state = state { vars = S.insert new state.vars, lastGen = new }
     where
-    new = thing2 state.lastGen state.vars
+    new = findNextVar state.lastGen state.vars
 
 reduce :: Redex -> State ReduceState (Array Redex)
 -- VOID
@@ -192,9 +191,30 @@ substitute arr = fromMaybe arr do
   let subs label = if label == varLabel then tree else Var label
   pure $ map (mapRedexVars subs) $ filter (\r -> r /= redex) arr
 
-fixedPoint :: forall a. Eq a => (a -> a) -> (a -> a)
-fixedPoint f = fixed
+-- walk both trees together and add variable equivalences to a set
+-- terminate if equivalences are inconsistent
+-- TODOngeneralize to Array Redex
+isomorphic :: Tree -> Tree -> State (SymmMap VarLabel) Boolean
+isomorphic t1 t2 = case [ t1, t2 ] of
+  [ Gamma x, Gamma y ] -> pairIso x y
+  [ Delta x, Delta y ] -> pairIso x y
+  [ Epsilon, Epsilon ] -> pure true
+  [ Var x, Var y ] -> varIso x y
+  _ -> pure false
   where
-  fixed a = if nextA == a then a else fixed nextA
-    where
-    nextA = f a
+  pairIso x y = do
+    l <- isomorphic x.fst y.fst
+    r <- isomorphic x.snd y.snd
+    pure $ l && r
+  varIso x y = do
+    maybxFriend <- lookup x
+    maybyFriend <- lookup y
+    case [ maybxFriend, maybyFriend ] of
+      [ Just xFriend, Just yFriend ] -> pure $ xFriend == y && yFriend == x
+      [ Nothing, Nothing ] -> do
+        modify_ $ symmInsert x y
+        pure true
+      _ -> pure false
+
+  lookup :: VarLabel -> State (SymmMap VarLabel) (Maybe VarLabel)
+  lookup s = gets $ M.lookup s
