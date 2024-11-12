@@ -4,11 +4,16 @@ module Nets
   , Redex(..)
   , Tree(..)
   , TreePair
+  , VarGenState
   , VarLabel
+  , _treeSize
+  , class Isomorphic
+  , initReduceState
   , isomorphic
   , makeDelta
   , makeGamma
   , makePair
+  , randomTree
   , reduce
   , reduceAll
   , reduceArr
@@ -17,16 +22,21 @@ module Nets
 
 import Prelude
 
-import Control.Monad.State (State, get, gets, modify, modify_, runState)
-import Data.Array (filter, find)
+import Control.Apply (lift2)
+import Control.Monad.State (class MonadState, State, StateT, gets, lift, modify, modify_, runState)
+import Data.Array (filter)
 import Data.Foldable (oneOfMap)
-import Data.Map (Map)
+import Data.Lens (Lens')
+import Data.Lens.Record (prop)
 import Data.Map as M
-import Data.Maybe (Maybe(..), fromMaybe, isNothing)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Set (Set)
 import Data.Set as S
-import Data.Tuple (Tuple, fst)
+import Data.Tuple (fst)
+import Effect (Effect)
+import Effect.Random (random, randomBool, randomInt)
 import Lex (succ)
+import Type.Proxy (Proxy(..))
 import Utils (SymmMap, symmInsert)
 
 type VarLabel = String
@@ -43,7 +53,7 @@ derive instance Eq Tree
 instance Show Tree where
   show (Gamma g) = "(" <> show g.fst <> ", " <> show g.snd <> ")"
   show (Delta d) = "{" <> show d.fst <> ", " <> show d.snd <> "}"
-  show (Epsilon) = "o"
+  show (Epsilon) = "•"
   show (Var s) = s
 
 data Redex = Redex Tree Tree
@@ -106,7 +116,9 @@ findNextVar x s = go x
   where
   go x = if S.member x s then go (varGen x) else x
 
-newVar :: State { vars :: (Set VarLabel), lastGen :: String } VarLabel
+type VarGenState = { vars :: (Set VarLabel), lastGen :: String }
+
+newVar :: forall m. MonadState VarGenState m => m VarLabel
 newVar = do
   newState <- modify f
   pure newState.lastGen
@@ -191,30 +203,58 @@ substitute arr = fromMaybe arr do
   let subs label = if label == varLabel then tree else Var label
   pure $ map (mapRedexVars subs) $ filter (\r -> r /= redex) arr
 
+class Isomorphic a where
+  isomorphic :: a -> a -> State (SymmMap VarLabel) Boolean
+
 -- walk both trees together and add variable equivalences to a set
 -- terminate if equivalences are inconsistent
 -- TODOngeneralize to Array Redex
-isomorphic :: Tree -> Tree -> State (SymmMap VarLabel) Boolean
-isomorphic t1 t2 = case [ t1, t2 ] of
-  [ Gamma x, Gamma y ] -> pairIso x y
-  [ Delta x, Delta y ] -> pairIso x y
-  [ Epsilon, Epsilon ] -> pure true
-  [ Var x, Var y ] -> varIso x y
-  _ -> pure false
-  where
-  pairIso x y = do
-    l <- isomorphic x.fst y.fst
-    r <- isomorphic x.snd y.snd
-    pure $ l && r
-  varIso x y = do
-    maybxFriend <- lookup x
-    maybyFriend <- lookup y
-    case [ maybxFriend, maybyFriend ] of
-      [ Just xFriend, Just yFriend ] -> pure $ xFriend == y && yFriend == x
-      [ Nothing, Nothing ] -> do
-        modify_ $ symmInsert x y
-        pure true
-      _ -> pure false
+instance Isomorphic Tree where
+  isomorphic t1 t2 = case [ t1, t2 ] of
+    [ Gamma x, Gamma y ] -> pairIso x y
+    [ Delta x, Delta y ] -> pairIso x y
+    [ Epsilon, Epsilon ] -> pure true
+    [ Var x, Var y ] -> varIso x y
+    _ -> pure false
+    where
+    pairIso x y = do
+      l <- isomorphic x.fst y.fst
+      r <- isomorphic x.snd y.snd
+      pure $ l && r
+    varIso x y = do
+      maybxFriend <- lookup x
+      maybyFriend <- lookup y
+      case [ maybxFriend, maybyFriend ] of
+        [ Just xFriend, Just yFriend ] -> pure $ xFriend == y && yFriend == x
+        [ Nothing, Nothing ] -> do
+          modify_ $ symmInsert x y
+          pure true
+        _ -> pure false
 
-  lookup :: VarLabel -> State (SymmMap VarLabel) (Maybe VarLabel)
-  lookup s = gets $ M.lookup s
+    lookup :: VarLabel -> State (SymmMap VarLabel) (Maybe VarLabel)
+    lookup s = gets $ M.lookup s
+
+-- TODO: how to handle (A ~ B) <-> (B ~ A) isomorphism?
+-- could we mess up the state by crawling the wrong pair?
+instance Isomorphic Redex where
+  isomorphic (Redex x1 y1) (Redex x2 y2) =
+    lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2)
+
+_varGenState :: forall a r. Lens' { varGenState :: a | r } a
+_varGenState = prop (Proxy :: Proxy "varGenState")
+
+_treeSize :: forall a r. Lens' { treeSize :: a | r } a
+_treeSize = prop (Proxy :: Proxy "treeSize")
+
+randomTree :: Int -> StateT VarGenState Effect Tree
+randomTree i = do
+  rand <- lift $ randomInt 0 i
+  case rand of
+    0 -> do
+      rv <- lift $ random
+      if rv < 0.2 then pure Epsilon else map Var newVar
+    _ -> do
+      rb <- lift randomBool
+      let op = if rb then makeGamma else makeDelta
+      lift2 op (randomTree $ i - 1) (randomTree $ i - 1)
+

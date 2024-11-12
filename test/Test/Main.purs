@@ -5,13 +5,14 @@ module Test.Main
 
 import Prelude
 
-import Control.Monad.State (runState)
+import Control.Monad.State (runState, runStateT)
 import Data.Array (head)
 import Data.Map as M
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class.Console (log)
 import Effect.Console (logShow)
-import Nets (Redex(..), Tree(..), VarLabel, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
+import Nets (Redex(..), Tree(..), VarLabel, initReduceState, isomorphic, makeDelta, makeGamma, randomTree, reduceArr, substitute)
 import Utils (fixedPoint)
 
 main :: Effect Unit
@@ -26,6 +27,8 @@ main = do
         simpleTree {a: "a", b: "d", c: "e", d: "d"}
         )
     ) M.empty
+  Tuple t sf <- runStateT (randomTree 5) initReduceState
+  logShow t
 
 simpleRedex :: Redex
 simpleRedex = (
@@ -50,3 +53,4 @@ lambdaApplySelf = makeGamma (makeDelta (Var "x1") (makeGamma (Var "x1") (Var "bo
 
 redex2 :: Redex
 redex2 = Redex lambdaApplySelf (makeGamma (lambdaId "a") (Var "root"))
+

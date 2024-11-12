@@ -8,6 +8,8 @@ package:
     - monad-loops
     - ordered-collections
     - prelude
+    - profunctor-lenses
+    - random
     - strings
     - transformers
     - tuples

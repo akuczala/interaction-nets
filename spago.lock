@@ -12,6 +12,8 @@
             "monad-loops",
             "ordered-collections",
             "prelude",
+            "profunctor-lenses",
+            "random",
             "strings",
             "transformers",
             "tuples"
@@ -30,6 +32,7 @@
             "exceptions",
             "exists",
             "foldable-traversable",
+            "foreign-object",
             "functions",
             "functors",
             "gen",
@@ -49,6 +52,9 @@
             "partial",
             "prelude",
             "profunctor",
+            "profunctor-lenses",
+            "random",
+            "record",
             "refs",
             "safe-coerce",
             "st",
@@ -57,6 +63,7 @@
             "transformers",
             "tuples",
             "type-equality",
+            "typelevel-prelude",
             "unfoldable",
             "unsafe-coerce"
           ]
@@ -744,6 +751,25 @@
         "tuples"
       ]
     },
+    "foreign-object": {
+      "type": "registry",
+      "version": "4.1.0",
+      "integrity": "sha256-q24okj6mT+yGHYQ+ei/pYPj5ih6sTbu7eDv/WU56JVo=",
+      "dependencies": [
+        "arrays",
+        "foldable-traversable",
+        "functions",
+        "gen",
+        "lists",
+        "maybe",
+        "prelude",
+        "st",
+        "tailrec",
+        "tuples",
+        "typelevel-prelude",
+        "unfoldable"
+      ]
+    },
     "functions": {
       "type": "registry",
       "version": "6.0.0",
@@ -966,6 +992,52 @@
         "tuples"
       ]
     },
+    "profunctor-lenses": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-K7f29rHRHgVSb2Y/PaSKtfYPriP6n87BJNO7EhsZHas=",
+      "dependencies": [
+        "arrays",
+        "bifunctors",
+        "const",
+        "control",
+        "distributive",
+        "either",
+        "foldable-traversable",
+        "foreign-object",
+        "functors",
+        "identity",
+        "lists",
+        "maybe",
+        "newtype",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "profunctor",
+        "record",
+        "transformers",
+        "tuples"
+      ]
+    },
+    "random": {
+      "type": "registry",
+      "version": "6.0.0",
+      "integrity": "sha256-CJ611a35MPCE7XQMp0rdC6MCn76znlhisiCRgboAG+Q=",
+      "dependencies": [
+        "effect",
+        "integers"
+      ]
+    },
+    "record": {
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-Za5U85bTRJEfGK5Sk4hM41oXy84YQI0I8TL3WUn1Qzg=",
+      "dependencies": [
+        "functions",
+        "prelude",
+        "unsafe-coerce"
+      ]
+    },
     "refs": {
       "type": "registry",
       "version": "6.0.0",
@@ -1069,6 +1141,15 @@
       "version": "4.0.1",
       "integrity": "sha256-Hs9D6Y71zFi/b+qu5NSbuadUQXe5iv5iWx0226vOHUw=",
       "dependencies": []
+    },
+    "typelevel-prelude": {
+      "type": "registry",
+      "version": "7.0.0",
+      "integrity": "sha256-uFF2ph+vHcQpfPuPf2a3ukJDFmLhApmkpTMviHIWgJM=",
+      "dependencies": [
+        "prelude",
+        "type-equality"
+      ]
     },
     "unfoldable": {
       "type": "registry",
