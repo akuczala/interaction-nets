@@ -3,6 +3,7 @@ package:
   dependencies:
     - console
     - effect
+    - lcg
     - leibniz
     - lists
     - monad-loops
@@ -10,12 +11,13 @@ package:
     - prelude
     - profunctor-lenses
     - random
+    - run
     - strings
     - transformers
     - tuples
   test:
     main: Test.Main
-    dependencies: []
+    dependencies: [ quickcheck ]
 workspace:
   packageSet:
     registry: 60.7.0

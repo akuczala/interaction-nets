@@ -7,17 +7,28 @@ import Prelude
 
 import Control.Monad.State (runState, runStateT)
 import Data.Array (head)
+import Data.Array as A
 import Data.Map as M
+import Data.String.CodeUnits (singleton)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class.Console (log)
 import Effect.Console (logShow)
-import Nets (Redex(..), Tree(..), VarLabel, initReduceState, isomorphic, makeDelta, makeGamma, randomTree, reduceArr, substitute)
+import Nets (Redex(..), Tree(..), VarLabel, initReduceState, isomorphic, makeDelta, makeGamma, randomRedex, randomTree, reduceArr, substitute)
+import Test.Utils (testRandom)
 import Utils (fixedPoint)
 
 main :: Effect Unit
 main = do
   log "🍕"
+  
+  --randomPairing (A.range 0 11) >>= logShow
+  testRandom
+  --Tuple r sf <- runStateT (randomRedex 3) initReduceState 
+  --logShow r
+
+testReduce :: Effect Unit
+testReduce = do
   let reduced = fixedPoint (reduceArr >>> substitute) [redex2]
   logShow $ reduced
   logShow $ runState (

@@ -7,6 +7,7 @@
           "dependencies": [
             "console",
             "effect",
+            "lcg",
             "leibniz",
             "lists",
             "monad-loops",
@@ -14,9 +15,72 @@
             "prelude",
             "profunctor-lenses",
             "random",
+            "run",
             "strings",
             "transformers",
             "tuples"
+          ],
+          "build_plan": [
+            "aff",
+            "arrays",
+            "bifunctors",
+            "catenable-lists",
+            "console",
+            "const",
+            "contravariant",
+            "control",
+            "datetime",
+            "distributive",
+            "effect",
+            "either",
+            "enums",
+            "exceptions",
+            "exists",
+            "foldable-traversable",
+            "foreign-object",
+            "free",
+            "functions",
+            "functors",
+            "gen",
+            "identity",
+            "integers",
+            "invariant",
+            "lazy",
+            "lcg",
+            "leibniz",
+            "lists",
+            "maybe",
+            "monad-loops",
+            "newtype",
+            "nonempty",
+            "numbers",
+            "ordered-collections",
+            "orders",
+            "parallel",
+            "partial",
+            "prelude",
+            "profunctor",
+            "profunctor-lenses",
+            "random",
+            "record",
+            "refs",
+            "run",
+            "safe-coerce",
+            "st",
+            "strings",
+            "tailrec",
+            "transformers",
+            "tuples",
+            "type-equality",
+            "typelevel-prelude",
+            "unfoldable",
+            "unsafe-coerce",
+            "variant"
+          ]
+        },
+        "test": {
+          "dependencies": [
+            "quickcheck"
           ],
           "build_plan": [
             "arrays",
@@ -32,7 +96,6 @@
             "exceptions",
             "exists",
             "foldable-traversable",
-            "foreign-object",
             "functions",
             "functors",
             "gen",
@@ -40,19 +103,17 @@
             "integers",
             "invariant",
             "lazy",
-            "leibniz",
+            "lcg",
             "lists",
             "maybe",
-            "monad-loops",
             "newtype",
             "nonempty",
             "numbers",
-            "ordered-collections",
             "orders",
             "partial",
             "prelude",
             "profunctor",
-            "profunctor-lenses",
+            "quickcheck",
             "random",
             "record",
             "refs",
@@ -63,14 +124,9 @@
             "transformers",
             "tuples",
             "type-equality",
-            "typelevel-prelude",
             "unfoldable",
             "unsafe-coerce"
           ]
-        },
-        "test": {
-          "dependencies": [],
-          "build_plan": []
         }
       }
     },
@@ -593,6 +649,29 @@
     "extra_packages": {}
   },
   "packages": {
+    "aff": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-5MmdI4+0RHBtSBy+YlU3/Cq4R5W2ih3OaRedJIrVHdk=",
+      "dependencies": [
+        "bifunctors",
+        "control",
+        "datetime",
+        "effect",
+        "either",
+        "exceptions",
+        "foldable-traversable",
+        "functions",
+        "maybe",
+        "newtype",
+        "parallel",
+        "prelude",
+        "refs",
+        "tailrec",
+        "transformers",
+        "unsafe-coerce"
+      ]
+    },
     "arrays": {
       "type": "registry",
       "version": "7.3.0",
@@ -624,6 +703,20 @@
         "newtype",
         "prelude",
         "tuples"
+      ]
+    },
+    "catenable-lists": {
+      "type": "registry",
+      "version": "7.0.0",
+      "integrity": "sha256-76vYENhwF4BWTBsjeLuErCH2jqVT4M3R1HX+4RwSftA=",
+      "dependencies": [
+        "control",
+        "foldable-traversable",
+        "lists",
+        "maybe",
+        "prelude",
+        "tuples",
+        "unfoldable"
       ]
     },
     "console": {
@@ -664,6 +757,29 @@
       "dependencies": [
         "newtype",
         "prelude"
+      ]
+    },
+    "datetime": {
+      "type": "registry",
+      "version": "6.1.0",
+      "integrity": "sha256-g/5X5BBegQWLpI9IWD+sY6mcaYpzzlW5lz5NBzaMtyI=",
+      "dependencies": [
+        "bifunctors",
+        "control",
+        "either",
+        "enums",
+        "foldable-traversable",
+        "functions",
+        "gen",
+        "integers",
+        "lists",
+        "maybe",
+        "newtype",
+        "numbers",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "tuples"
       ]
     },
     "distributive": {
@@ -770,6 +886,27 @@
         "unfoldable"
       ]
     },
+    "free": {
+      "type": "registry",
+      "version": "7.1.0",
+      "integrity": "sha256-JAumgEsGSzJCNLD8AaFvuX7CpqS5yruCngi6yI7+V5k=",
+      "dependencies": [
+        "catenable-lists",
+        "control",
+        "distributive",
+        "either",
+        "exists",
+        "foldable-traversable",
+        "invariant",
+        "lazy",
+        "maybe",
+        "prelude",
+        "tailrec",
+        "transformers",
+        "tuples",
+        "unsafe-coerce"
+      ]
+    },
     "functions": {
       "type": "registry",
       "version": "6.0.0",
@@ -854,6 +991,19 @@
         "foldable-traversable",
         "invariant",
         "prelude"
+      ]
+    },
+    "lcg": {
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-h7ME5cthLfbgJOJdsZcSfFpwXsx4rf8YmhebU+3iSYg=",
+      "dependencies": [
+        "effect",
+        "integers",
+        "maybe",
+        "partial",
+        "prelude",
+        "random"
       ]
     },
     "leibniz": {
@@ -965,6 +1115,24 @@
         "prelude"
       ]
     },
+    "parallel": {
+      "type": "registry",
+      "version": "7.0.0",
+      "integrity": "sha256-gUC9i4Txnx9K9RcMLsjujbwZz6BB1bnE2MLvw4GIw5o=",
+      "dependencies": [
+        "control",
+        "effect",
+        "either",
+        "foldable-traversable",
+        "functors",
+        "maybe",
+        "newtype",
+        "prelude",
+        "profunctor",
+        "refs",
+        "transformers"
+      ]
+    },
     "partial": {
       "type": "registry",
       "version": "4.0.0",
@@ -1019,6 +1187,40 @@
         "tuples"
       ]
     },
+    "quickcheck": {
+      "type": "registry",
+      "version": "8.0.1",
+      "integrity": "sha256-ZvpccKQCvgslTXZCNmpYW4bUsFzhZd/kQUr2WmxFTGY=",
+      "dependencies": [
+        "arrays",
+        "console",
+        "control",
+        "effect",
+        "either",
+        "enums",
+        "exceptions",
+        "foldable-traversable",
+        "gen",
+        "identity",
+        "integers",
+        "lazy",
+        "lcg",
+        "lists",
+        "maybe",
+        "newtype",
+        "nonempty",
+        "numbers",
+        "partial",
+        "prelude",
+        "record",
+        "st",
+        "strings",
+        "tailrec",
+        "transformers",
+        "tuples",
+        "unfoldable"
+      ]
+    },
     "random": {
       "type": "registry",
       "version": "6.0.0",
@@ -1045,6 +1247,27 @@
       "dependencies": [
         "effect",
         "prelude"
+      ]
+    },
+    "run": {
+      "type": "registry",
+      "version": "5.0.0",
+      "integrity": "sha256-uCCGBqPXOSTnQoVzQUoCcEYyGvi+dWZp+lLsxtNG6+U=",
+      "dependencies": [
+        "aff",
+        "effect",
+        "either",
+        "free",
+        "maybe",
+        "newtype",
+        "prelude",
+        "profunctor",
+        "tailrec",
+        "tuples",
+        "type-equality",
+        "typelevel-prelude",
+        "unsafe-coerce",
+        "variant"
       ]
     },
     "safe-coerce": {
@@ -1168,6 +1391,21 @@
       "version": "6.0.0",
       "integrity": "sha256-IqIYW4Vkevn8sI+6aUwRGvd87tVL36BBeOr0cGAE7t0=",
       "dependencies": []
+    },
+    "variant": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-SR//zQDg2dnbB8ZHslcxieUkCeNlbMToapvmh9onTtw=",
+      "dependencies": [
+        "enums",
+        "lists",
+        "maybe",
+        "partial",
+        "prelude",
+        "record",
+        "tuples",
+        "unsafe-coerce"
+      ]
     }
   }
 }
