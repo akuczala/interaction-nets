@@ -1,4 +1,4 @@
-module Test.Utils
+module Test.Random
   ( testRandomCombination
   , testRandom
   )
@@ -7,13 +7,11 @@ module Test.Utils
 import Prelude
 
 import Data.Array as A
-import Data.Foldable (sum)
 import Effect (Effect)
 import Effect.Console (logShow)
-import Nets (Tree)
-import Random (randomCombination, randomPairing, runRandom)
+import Random (randomCombination, runRandom)
 import Run (runBaseEffect)
-import Test.QuickCheck (class Arbitrary, arbitrary, assertEquals, quickCheck)
+import Test.QuickCheck (quickCheck)
 
 testRandom :: Effect Unit
 testRandom = testRandomCombination

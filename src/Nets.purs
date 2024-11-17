@@ -13,8 +13,8 @@ module Nets
   , makeDelta
   , makeGamma
   , makePair
-  , randomRedex
-  , randomTree
+  , mapRedexVars
+  , newVar
   , reduce
   , reduceAll
   , reduceArr
@@ -24,26 +24,17 @@ module Nets
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.List.Trans (repeat)
-import Control.Monad.ST (for)
-import Control.Monad.State (class MonadState, State, StateT, gets, lift, modify, modify_, runState)
-import Data.Array (deleteAt, filter, index, length, singleton)
-import Data.Array as A
+import Control.Monad.State (class MonadState, State, gets, modify, modify_, runState)
+import Data.Array (filter)
 import Data.Foldable (oneOfMap)
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
-import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Set (Set)
 import Data.Set as S
-import Data.Traversable (sequence)
 import Data.Tuple (fst)
-import Data.Unfoldable (replicateA)
-import Effect (Effect)
 import Lex (succ)
-import Random (randomBool, randomInt, randomPairing, randomUniform, runRandom)
-import Run (runBaseEffect)
 import Type.Proxy (Proxy(..))
 import Utils (SymmMap, symmInsert)
 
@@ -253,23 +244,3 @@ _varGenState = prop (Proxy :: Proxy "varGenState")
 
 _treeSize :: forall a r. Lens' { treeSize :: a | r } a
 _treeSize = prop (Proxy :: Proxy "treeSize")
-
-randomTree :: Int -> StateT VarGenState Effect Tree
-randomTree i = do
-  rand <- lift <<< runBaseEffect <<< runRandom $ randomInt 0 i
-  case rand of
-    0 -> do
-      rv <- lift <<< runBaseEffect <<< runRandom $ randomUniform
-      if rv < 0.2 then pure Epsilon else map Var newVar
-    _ -> do
-      rb <- lift <<< runBaseEffect <<< runRandom $ randomBool
-      let op = if rb then makeGamma else makeDelta
-      lift2 op (randomTree $ i - 1) (randomTree $ i - 1)
-
-randomRedex :: Int -> StateT VarGenState Effect Redex
-randomRedex i = do
-  redex <- lift2 Redex (randomTree i) (randomTree i)
-  vars <- gets (A.fromFoldable <<< _.vars)
-  nConnections <- lift <<< runBaseEffect <<< runRandom $ randomInt 0 (div (A.length vars) 2)
-  connections <- lift <<< runBaseEffect <<< runRandom $ randomPairing nConnections vars
-  pure $ mapRedexVars (\v -> Var $ fromMaybe v $ M.lookup v connections) redex

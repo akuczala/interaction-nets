@@ -6,6 +6,8 @@ module Random
   , randomCombination
   , randomInt
   , randomPairing
+  , randomRedex
+  , randomTree
   , randomUniform
   , runRandom
   ) where
@@ -18,13 +20,15 @@ import Data.Array as A
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
-import Effect (Effect)
 import Effect.Random as R
+import Nets (Redex(..), Tree(..), VarGenState, makeDelta, makeGamma, mapRedexVars, newVar)
 import Random.LCG (Seed, lcgNext, unSeed)
-import Run (Run, VariantF, EFFECT, case_, interpret, liftEffect, on, send)
+import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run
+import Run.State (STATE)
 import Type.Proxy (Proxy(..))
 import Type.Row (type (+))
+import Utils (liftState)
 
 data RandomF a
   = RandomUniform (Number -> a)
@@ -78,3 +82,22 @@ handlePseudoRandom rf = do
 runRandom :: forall r. Run (EFFECT + RANDOM + r) ~> Run (EFFECT + r)
 runRandom = interpret (on _random handleRandom send)
 
+randomTree :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Tree
+randomTree i = do
+  rand <- randomInt 0 i
+  case rand of
+    0 -> do
+      rv <- randomUniform
+      if rv < 0.2 then pure Epsilon else map Var (liftState newVar)
+    _ -> do
+      rb <- randomBool
+      let op = if rb then makeGamma else makeDelta
+      lift2 op (randomTree $ i - 1) (randomTree $ i - 1)
+
+randomRedex :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Redex
+randomRedex i = do
+  redex <- lift2 Redex (randomTree i) (randomTree i)
+  vars <- liftState $ gets (A.fromFoldable <<< _.vars)
+  nConnections <- randomInt 0 (div (A.length vars) 2)
+  connections <- randomPairing nConnections vars
+  pure $ mapRedexVars (\v -> Var $ fromMaybe v $ M.lookup v connections) redex
