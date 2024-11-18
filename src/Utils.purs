@@ -7,8 +7,7 @@ module Utils
 
 import Prelude
 
-import Control.Monad.State (class MonadState, StateT(..), State, get)
-import Data.Identity (Identity(..))
+import Control.Monad.State (State, StateT(..))
 import Data.Map (Map)
 import Data.Map as M
 import Data.Newtype (unwrap)
@@ -31,7 +30,7 @@ symmInsert :: forall k. Ord k => k -> k -> SymmMap k -> SymmMap k
 symmInsert k1 k2 = M.insert k1 k2 >>> M.insert k2 k1
 
 -- for converting from a MTL state -> Run state
--- TODO: generalize to MonadState typeclass
+-- TODO: generalize to MonadState typeclass?
 convertState :: forall s a. State s a -> Run.State.State s a
 convertState (StateT f) = Run.State.State
   ( snd <<< unwrap <<< f
