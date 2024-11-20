@@ -6,17 +6,14 @@ module Test.Net
 
 import Prelude
 
-import Control.Monad.State (evalState, runState, runStateT)
-import Data.Newtype (unwrap)
-import Data.Tuple (Tuple(..), fst, snd)
+import Control.Monad.State (evalState)
 import Effect (Effect)
 import Effect.Console (logShow)
-import Nets (Redex(..), Tree(..), VarLabel, initReduceState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
-import Random (_random, randomRedex, randomTree, randomlyRenamedTree, runRandom)
+import Nets (class HasVars, Redex(..), Tree(..), VarLabel, evalIso, flipRedex, initReduceState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
+import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
-import Run as Run
 import Run.State as Run.State
-import Test.QuickCheck (class Arbitrary, assertEquals, assertNotEquals, quickCheck, (<?>))
+import Test.QuickCheck (class Arbitrary, assertEquals, assertNotEquals, quickCheck, quickCheck', (<?>))
 import Test.QuickCheck.Gen (repeatable)
 import Test.Random (handleRandomGen)
 import Utils (emptyBimap, fixedPoint)
@@ -40,30 +37,30 @@ testIsomorphismCase = do
   quickCheck $ assertEquals true $ evalState (isomorphic t1 t2) emptyBimap
   let t3 = (makeGamma (makeGamma (makeGamma d b) Epsilon) b)
   quickCheck $ assertNotEquals true $ evalState (isomorphic t1 t3) emptyBimap
+
+msg :: forall a. Show a => a -> a -> String
+msg a b = show a <> " and " <> show b <> " not isomorphic"
 testIsomorphism :: Effect Unit
 testIsomorphism = do
-    let msg t t' = show t <> " and " <> show t' <> " not isomorphic"
-    quickCheck $ \(RandomTree t) (RandomlyRenameTree rename) ->
+    quickCheck $ \(RandomTree t) (RandomlyRename rename) ->
       let
         t' = rename t
       in
-        (fst $ unwrap $ runStateT (isomorphic t t') emptyBimap) <?> msg t t'
-    quickCheck $ \(RandomRedex r) ->
-      fst $ unwrap $ runStateT (isomorphic r r) emptyBimap
+        evalIso t t' <?> msg t t'
+    quickCheck $ \(RandomRedex r) -> evalIso r r
+    quickCheck $ \(RandomRedex r) (RandomlyRename rename) ->
+      let
+        r' = rename r
+      in
+        evalIso r r' <?> msg r r'
+    quickCheck $ \(RandomRedex r) -> evalIso r (flipRedex r)
 
 testReduce :: Effect Unit
 testReduce = do
   let reduced = fixedPoint (reduceArr >>> substitute) [redex2]
   logShow $ reduced
-  logShow $ runState (
-    isomorphic (
-      simpleTree {a: "a", b: "b", c: "c", d: "b"}
-      ) (
-        simpleTree {a: "a", b: "d", c: "e", d: "d"}
-        )
-    ) emptyBimap
-  Tuple t _ <- Run.runBaseEffect $ Run.State.runState initReduceState (runRandom $ randomTree 5)
-  logShow t
+  -- t <- Run.runBaseEffect $ Run.State.evalState initReduceState (runRandom $ randomTree 5)
+  quickCheck' 1 $ evalIso reduced [Redex (Var "theroot") (lambdaId "joined")]
 
 simpleRedex :: Redex
 simpleRedex = (
@@ -97,17 +94,17 @@ newtype RandomRedex = RandomRedex Redex
 instance Arbitrary RandomTree where
   arbitrary = map RandomTree $ thing # interpret (case_ # on _random handleRandomGen)
     where
-    thing = map snd $ Run.State.runState initReduceState (randomTree 3)
+    thing = Run.State.evalState initReduceState (randomTree 3)
 
 instance Arbitrary RandomRedex where
   arbitrary = map RandomRedex $ thing # interpret (case_ # on _random handleRandomGen)
     where
-    thing = map snd $ Run.State.runState initReduceState (randomRedex 3)
+    thing = Run.State.evalState initReduceState (randomRedex 3)
 
-newtype RandomlyRenameTree = RandomlyRenameTree (Tree -> Tree)
-instance Arbitrary RandomlyRenameTree where
-  arbitrary = map RandomlyRenameTree $ repeatable $ \t ->
-    randomlyRenamedTree t # interpret (case_ # on _random handleRandomGen)
+newtype RandomlyRename a = RandomlyRename (a -> a)
+instance HasVars a => Arbitrary (RandomlyRename a) where
+  arbitrary = map RandomlyRename $ repeatable $ \t ->
+    randomlyRenamed t # interpret (case_ # on _random handleRandomGen)
 
 -- runRandom :: forall r. Run (EFFECT + RANDOM + r) ~> Run (EFFECT + r)
 -- runRandom = interpret (on _random handleRandom send)

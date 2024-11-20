@@ -7,39 +7,45 @@ module Nets
   , VarGenState
   , VarLabel
   , _treeSize
+  , _varGenState
+  , class HasVars
   , class Isomorphic
-  , getTreeVars
+  , evalIso
+  , flipRedex
+  , getVars
   , initReduceState
   , isomorphic
   , makeDelta
   , makeGamma
   , makePair
-  , mapRedexVars
-  , mapTreeVars
+  , mapVars
   , newVar
   , reduce
   , reduceAll
   , reduceArr
+  , rename
   , substitute
   ) where
 
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.State (class MonadState, State, execState, gets, modify, modify_, runState)
-import Data.Array (filter)
+import Control.Monad.State (class MonadState, State, evalState, execState, gets, modify, modify_)
+import Data.Array (all, filter, zipWithA)
+import Data.Array as A
 import Data.Bifunctor (bimap)
 import Data.Foldable (oneOfMap)
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
+import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Set (Set)
 import Data.Set as S
-import Data.Tuple (Tuple(..), fst)
+import Data.Tuple (Tuple(..))
 import Lex (succ)
 import Type.Proxy (Proxy(..))
-import Utils (Bimap, bimapInsert)
+import Utils (Bimap, bimapInsert, emptyBimap)
 
 type VarLabel = String
 type Pair a b = { fst :: a, snd :: b }
@@ -110,8 +116,20 @@ addVarsFromTree (Delta d) = do
   addVarsFromTree d.fst
   addVarsFromTree d.snd
 
-getTreeVars :: Tree -> Set VarLabel
-getTreeVars t = _.vars $ execState (addVarsFromTree t) initReduceState
+class HasVars a where
+  getVars :: a -> Set VarLabel
+  mapVars :: (VarLabel -> Tree) -> a -> a
+  rename :: Map VarLabel VarLabel -> a -> a
+
+instance HasVars Tree where
+  getVars t = _.vars $ execState (addVarsFromTree t) initReduceState
+  mapVars = mapTreeVars
+  rename varMap t = mapVars (\s -> Var $ fromMaybe s (M.lookup s varMap)) t
+
+instance HasVars Redex where
+  getVars (Redex t1 t2) = S.union (getVars t1) (getVars t2)
+  mapVars = mapRedexVars
+  rename varMap (Redex x y) = Redex (rename varMap x) (rename varMap y)
 
 varGen :: String -> String
 varGen x = succ x
@@ -159,29 +177,17 @@ reduce (Redex (Gamma g) (Delta d)) = do
     , Redex (makeGamma (Var x) (Var z)) d.fst
     , Redex (makeGamma (Var y) (Var w)) d.snd
     ]
-reduce (Redex (Delta d) (Gamma g)) = do
-  x <- newVar
-  y <- newVar
-  z <- newVar
-  w <- newVar
-  pure
-    [ Redex (makeDelta (Var x) (Var y)) g.fst
-    , Redex (makeDelta (Var z) (Var w)) g.snd
-    , Redex (makeGamma (Var x) (Var z)) d.fst
-    , Redex (makeGamma (Var y) (Var w)) d.snd
-    ]
+reduce (Redex (Delta d) (Gamma g)) = reduce (Redex (Gamma g) (Delta d))
 -- OTHERWISE
 reduce r@(Redex (Var _) _) = pure [ r ]
 reduce r@(Redex _ (Var _)) = pure [ r ]
 
 reduceAll :: Redex -> Array Redex
-reduceAll r@(Redex leftTree rightTree) = fst $ runState
-  ( do
-      addVarsFromTree leftTree
-      addVarsFromTree rightTree
-      reduce r
-
-  )
+reduceAll r@(Redex leftTree rightTree) = evalState
+  do
+    addVarsFromTree leftTree
+    addVarsFromTree rightTree
+    reduce r
   initReduceState
 
 reduceArr :: Array Redex -> Array Redex
@@ -208,8 +214,33 @@ substitute arr = fromMaybe arr do
   let subs label = if label == varLabel then tree else Var label
   pure $ map (mapRedexVars subs) $ filter (\r -> r /= redex) arr
 
+instance Ord Tree where
+  compare t1 t2 = compare (show t1) (show t2)
+
+instance Ord Redex where
+  compare r1 r2 =
+    let
+      (Redex x1 y1) = sortRedex r1
+      (Redex x2 y2) = sortRedex r2
+    in
+      case compare x1 x2 of
+        EQ -> compare y1 y2
+        x -> x
+
 class Isomorphic a where
   isomorphic :: a -> a -> State (Bimap VarLabel) Boolean
+
+-- TODO test
+instance (Ord a, Isomorphic a) => Isomorphic (Array a) where
+  isomorphic xs ys =
+    let
+      xss = A.sort xs
+      yss = A.sort ys
+    in
+      map (all identity) $ zipWithA isomorphic xss yss
+
+evalIso :: forall a. Isomorphic a => a -> a -> Boolean
+evalIso x y = evalState (isomorphic x y) emptyBimap
 
 -- walk both trees together and add variable equivalences to a set
 -- terminate if equivalences are inconsistent
@@ -238,11 +269,22 @@ instance Isomorphic Tree where
     lookup :: VarLabel -> VarLabel -> State (Bimap VarLabel) (Tuple (Maybe VarLabel) (Maybe VarLabel))
     lookup s1 s2 = gets $ bimap (M.lookup s1) (M.lookup s2)
 
+flipRedex :: Redex -> Redex
+flipRedex (Redex x y) = (Redex y x)
+
+sortRedex :: Redex -> Redex
+sortRedex r@(Redex x y) = if x < y then r else flipRedex r
+
 -- TODO: how to handle (A ~ B) <-> (B ~ A) isomorphism?
 -- could we mess up the state by crawling the wrong pair?
+-- does this work??
 instance Isomorphic Redex where
-  isomorphic (Redex x1 y1) (Redex x2 y2) =
-    lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2)
+  isomorphic r1 r2 =
+    let
+      (Redex x1 y1) = sortRedex r1
+      (Redex x2 y2) = sortRedex r2
+    in
+      lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2)
 
 _varGenState :: forall a r. Lens' { varGenState :: a | r } a
 _varGenState = prop (Proxy :: Proxy "varGenState")

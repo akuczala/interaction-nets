@@ -10,7 +10,7 @@ module Random
   , randomRedex
   , randomTree
   , randomUniform
-  , randomlyRenamedTree
+  , randomlyRenamed
   , runRandom
   ) where
 
@@ -23,7 +23,7 @@ import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Nets (Redex(..), Tree(..), VarGenState, getTreeVars, makeDelta, makeGamma, mapRedexVars, mapTreeVars, newVar)
+import Nets (class HasVars, Redex(..), Tree(..), VarGenState, getVars, makeDelta, makeGamma, mapVars, newVar, rename)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run
@@ -69,13 +69,6 @@ randomPairing nPairs vars = do
   connectVars <- randomCombination (nPairs * 2) vars
   pure $ M.fromFoldable $ A.zip connectVars (A.drop nPairs connectVars)
 
-randomlyRenamedTree :: forall r. Tree -> Run (RANDOM + r) Tree
-randomlyRenamedTree t = do
-  let treeVars = A.fromFoldable $ getTreeVars t
-  shuffledTreeVars <- randomPermutation treeVars
-  let varMap = M.fromFoldable $ A.zip treeVars shuffledTreeVars
-  pure $ mapTreeVars (\s -> Var $ fromMaybe s (M.lookup s varMap)) t
-
 handleRandom :: forall r. RandomF ~> Run (EFFECT + r)
 handleRandom = case _ of
   RandomUniform next -> liftEffect $ map next $ R.random
@@ -115,4 +108,11 @@ randomRedex i = do
   vars <- liftState $ gets (A.fromFoldable <<< _.vars)
   nConnections <- randomInt 0 (div (A.length vars) 2)
   connections <- randomPairing nConnections vars
-  pure $ mapRedexVars (\v -> Var $ fromMaybe v $ M.lookup v connections) redex
+  pure $ mapVars (\v -> Var $ fromMaybe v $ M.lookup v connections) redex
+
+randomlyRenamed :: forall r a. HasVars a => a -> Run (RANDOM + r) a
+randomlyRenamed r = do
+  let vars = A.fromFoldable $ getVars r
+  shuffledVars <- randomPermutation vars
+  let varMap = M.fromFoldable $ A.zip vars shuffledVars
+  pure $ rename varMap r
