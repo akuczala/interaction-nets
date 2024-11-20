@@ -6,9 +6,11 @@ module Random
   , randomCombination
   , randomInt
   , randomPairing
+  , randomPermutation
   , randomRedex
   , randomTree
   , randomUniform
+  , randomlyRenamedTree
   , runRandom
   ) where
 
@@ -21,7 +23,7 @@ import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Nets (Redex(..), Tree(..), VarGenState, makeDelta, makeGamma, mapRedexVars, newVar)
+import Nets (Redex(..), Tree(..), VarGenState, getTreeVars, makeDelta, makeGamma, mapRedexVars, mapTreeVars, newVar)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run
@@ -58,11 +60,21 @@ randomCombination n arr = do
   let remaining = fromMaybe arr $ A.deleteAt randIndex arr
   lift2 (<>) (pure item) (randomCombination (n - 1) remaining)
 
+randomPermutation :: forall r a. Array a -> Run (RANDOM + r) (Array a)
+randomPermutation arr = randomCombination (A.length arr) arr
+
 randomPairing :: forall r a. Ord a => Int -> Array a -> Run (RANDOM + r) (Map a a)
 randomPairing nPairs vars = do
   --nConnections <- randomInt 0 (div (A.length vars) 2)
   connectVars <- randomCombination (nPairs * 2) vars
   pure $ M.fromFoldable $ A.zip connectVars (A.drop nPairs connectVars)
+
+randomlyRenamedTree :: forall r. Tree -> Run (RANDOM + r) Tree
+randomlyRenamedTree t = do
+  let treeVars = A.fromFoldable $ getTreeVars t
+  shuffledTreeVars <- randomPermutation treeVars
+  let varMap = M.fromFoldable $ A.zip treeVars shuffledTreeVars
+  pure $ mapTreeVars (\s -> Var $ fromMaybe s (M.lookup s varMap)) t
 
 handleRandom :: forall r. RandomF ~> Run (EFFECT + r)
 handleRandom = case _ of
@@ -81,6 +93,9 @@ handlePseudoRandom rf = do
 
 runRandom :: forall r. Run (EFFECT + RANDOM + r) ~> Run (EFFECT + r)
 runRandom = interpret (on _random handleRandom send)
+
+-- runPseudoRandom :: forall r. Run (RANDOM + r) ~> Run (EFFECT + r)
+-- runRandom = interpret (on _random handleRandom send)
 
 randomTree :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Tree
 randomTree i = do

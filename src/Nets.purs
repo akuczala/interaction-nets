@@ -8,12 +8,14 @@ module Nets
   , VarLabel
   , _treeSize
   , class Isomorphic
+  , getTreeVars
   , initReduceState
   , isomorphic
   , makeDelta
   , makeGamma
   , makePair
   , mapRedexVars
+  , mapTreeVars
   , newVar
   , reduce
   , reduceAll
@@ -24,8 +26,9 @@ module Nets
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.State (class MonadState, State, gets, modify, modify_, runState)
+import Control.Monad.State (class MonadState, State, execState, gets, modify, modify_, runState)
 import Data.Array (filter)
+import Data.Bifunctor (bimap)
 import Data.Foldable (oneOfMap)
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
@@ -33,10 +36,10 @@ import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Set (Set)
 import Data.Set as S
-import Data.Tuple (fst)
+import Data.Tuple (Tuple(..), fst)
 import Lex (succ)
 import Type.Proxy (Proxy(..))
-import Utils (SymmMap, symmInsert)
+import Utils (Bimap, bimapInsert)
 
 type VarLabel = String
 type Pair a b = { fst :: a, snd :: b }
@@ -106,6 +109,9 @@ addVarsFromTree (Gamma g) = do
 addVarsFromTree (Delta d) = do
   addVarsFromTree d.fst
   addVarsFromTree d.snd
+
+getTreeVars :: Tree -> Set VarLabel
+getTreeVars t = _.vars $ execState (addVarsFromTree t) initReduceState
 
 varGen :: String -> String
 varGen x = succ x
@@ -203,7 +209,7 @@ substitute arr = fromMaybe arr do
   pure $ map (mapRedexVars subs) $ filter (\r -> r /= redex) arr
 
 class Isomorphic a where
-  isomorphic :: a -> a -> State (SymmMap VarLabel) Boolean
+  isomorphic :: a -> a -> State (Bimap VarLabel) Boolean
 
 -- walk both trees together and add variable equivalences to a set
 -- terminate if equivalences are inconsistent
@@ -221,17 +227,16 @@ instance Isomorphic Tree where
       r <- isomorphic x.snd y.snd
       pure $ l && r
     varIso x y = do
-      maybxFriend <- lookup x
-      maybyFriend <- lookup y
+      Tuple maybxFriend maybyFriend <- lookup x y
       case [ maybxFriend, maybyFriend ] of
         [ Just xFriend, Just yFriend ] -> pure $ xFriend == y && yFriend == x
         [ Nothing, Nothing ] -> do
-          modify_ $ symmInsert x y
+          modify_ $ bimapInsert x y
           pure true
         _ -> pure false
 
-    lookup :: VarLabel -> State (SymmMap VarLabel) (Maybe VarLabel)
-    lookup s = gets $ M.lookup s
+    lookup :: VarLabel -> VarLabel -> State (Bimap VarLabel) (Tuple (Maybe VarLabel) (Maybe VarLabel))
+    lookup s1 s2 = gets $ bimap (M.lookup s1) (M.lookup s2)
 
 -- TODO: how to handle (A ~ B) <-> (B ~ A) isomorphism?
 -- could we mess up the state by crawling the wrong pair?
