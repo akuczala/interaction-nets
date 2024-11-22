@@ -23,9 +23,6 @@ testNet = do
     testIsomorphismCase
     testIsomorphism
 
--- test that random trees and redexes are isomorphic to themselves
--- TODO: test isomorphism on renamed variables
-
 testIsomorphismCase :: Effect Unit
 testIsomorphismCase = do
   let b = Var "b"
