@@ -10,11 +10,10 @@ import Prelude
 import Control.Monad.Gen.Class (chooseBool)
 import Data.Array as A
 import Effect (Effect)
-import Effect.Console (logShow)
-import Random (RandomF(..), _random, randomCombination, randomPermutation, runRandom)
-import Run (case_, interpret, on, runBaseEffect)
-import Test.QuickCheck (class Arbitrary, quickCheck)
-import Test.QuickCheck.Gen (Gen, choose, chooseInt, repeatable)
+import Random (RandomF(..), _random, randomCombination, randomPermutation)
+import Run (case_, interpret, on)
+import Test.QuickCheck (class Arbitrary, quickCheck, quickCheckGen)
+import Test.QuickCheck.Gen (Gen, choose, chooseInt, repeatable, suchThat, vectorOf)
 
 handleRandomGen :: RandomF ~> Gen
 handleRandomGen = case _ of
@@ -37,11 +36,12 @@ testRandom = do
   testRandomPermutation
 
 testRandomCombination :: Effect Unit
-testRandomCombination = do
-  combo <- runBaseEffect <<< runRandom $ randomCombination 5 (A.range 0 11)
-  logShow combo
-  pure $ A.length combo == 5 && A.length (A.nub combo) == 5
-  >>= quickCheck
+testRandomCombination = quickCheckGen do
+  -- generate arrays with unique elements
+  arr <- suchThat (vectorOf 10 (chooseInt 0 500)) $ \a -> A.length (A.nub a) == A.length a
+  let n = 5
+  combo <- randomCombination n arr # interpret (case_ # on _random handleRandomGen)
+  pure $ A.length combo == n && A.length (A.nub combo) == n
 
 testRandomPermutation :: Effect Unit
 testRandomPermutation = quickCheck $

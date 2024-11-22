@@ -8,8 +8,7 @@ import Prelude
 
 import Control.Monad.State (evalState)
 import Effect (Effect)
-import Effect.Console (logShow)
-import Nets (class HasVars, Redex(..), Tree(..), VarLabel, evalIso, flipRedex, initReduceState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
+import Nets (class HasVars, Redex(..), Tree(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
 import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
 import Run.State as Run.State
@@ -58,24 +57,7 @@ testIsomorphism = do
 testReduce :: Effect Unit
 testReduce = do
   let reduced = fixedPoint (reduceArr >>> substitute) [redex2]
-  logShow $ reduced
-  -- t <- Run.runBaseEffect $ Run.State.evalState initReduceState (runRandom $ randomTree 5)
   quickCheck' 1 $ evalIso reduced [Redex (Var "theroot") (lambdaId "joined")]
-
-simpleRedex :: Redex
-simpleRedex = (
-  Redex (makeGamma (Var "a") (Var "b")) (makeDelta (Var "c") (Var "d"))
-  )
-
-simpleTree
-  :: {a :: VarLabel, b :: VarLabel, c :: VarLabel, d :: VarLabel}
-  -> Tree
-simpleTree vs = (
-  makeDelta (makeGamma (Var vs.a) (Var vs.b)) (makeDelta (Var vs.c) (Var vs.d))
-  )
-
-simpleTree2 :: Tree
-simpleTree2 = makeGamma (Var "c") (Var "d")
 
 lambdaId :: VarLabel -> Tree
 lambdaId s = makeGamma (Var s) (Var s)
@@ -94,12 +76,12 @@ newtype RandomRedex = RandomRedex Redex
 instance Arbitrary RandomTree where
   arbitrary = map RandomTree $ thing # interpret (case_ # on _random handleRandomGen)
     where
-    thing = Run.State.evalState initReduceState (randomTree 3)
+    thing = Run.State.evalState initVarGenState (randomTree 3)
 
 instance Arbitrary RandomRedex where
   arbitrary = map RandomRedex $ thing # interpret (case_ # on _random handleRandomGen)
     where
-    thing = Run.State.evalState initReduceState (randomRedex 3)
+    thing = Run.State.evalState initVarGenState (randomRedex 3)
 
 newtype RandomlyRename a = RandomlyRename (a -> a)
 instance HasVars a => Arbitrary (RandomlyRename a) where

@@ -23,7 +23,8 @@ import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Nets (class HasVars, Redex(..), Tree(..), VarGenState, getVars, makeDelta, makeGamma, mapVars, newVar, rename)
+import Nets (class HasVars, Redex(..), Tree(..), getVars, makeDelta, makeGamma, mapVars, newVar, rename)
+import Nets.Tree (VarGenState)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run
