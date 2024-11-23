@@ -7,8 +7,9 @@ module Test.Net
 import Prelude
 
 import Control.Monad.State (evalState)
+import Data.Foldable (class Foldable)
 import Effect (Effect)
-import Nets (class HasVars, Redex(..), Tree(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
+import Nets (Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
 import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
 import Run.State as Run.State
@@ -81,7 +82,7 @@ instance Arbitrary RandomRedex where
     thing = Run.State.evalState initVarGenState (randomRedex 3)
 
 newtype RandomlyRename a = RandomlyRename (a -> a)
-instance HasVars a => Arbitrary (RandomlyRename a) where
+instance (Ord a, Functor t, Foldable t) => Arbitrary (RandomlyRename (t a)) where
   arbitrary = map RandomlyRename $ repeatable $ \t ->
     randomlyRenamed t # interpret (case_ # on _random handleRandomGen)
 

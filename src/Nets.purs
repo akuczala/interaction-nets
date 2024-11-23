@@ -1,29 +1,38 @@
 module Nets
-  ( module Nets.Tree
-  , Net(..)
-  , Redex(..)
+  ( Net
+  , RedexF(..)
+  , Redex
   , evalIso
   , flipRedex
+  , module Nets.Tree
   , reduce
   , reduceAll
   , reduceArr
   , substitute
   ) where
 
+import Nets.Tree
 import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.State (State, evalState, get, modify_, put, runState)
 import Data.Array (filter)
-import Data.Foldable (oneOfMap)
+import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr, oneOfMap)
 import Data.Lens.Zoom (zoom)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Set as S
 import Data.Tuple (Tuple(..))
-import Nets.Tree
 import Utils (emptyBimap)
 
-data Redex = Redex Tree Tree
+data RedexF a = Redex (TreeF a) (TreeF a)
+
+derive instance Functor RedexF
+
+instance Foldable RedexF where
+  foldl f b0 (Redex l r) = foldl f (foldl f b0 l) r
+  foldr f b0 (Redex l r) = foldr f (foldr f b0 r) l
+  foldMap = foldMapDefaultL
+
+type Redex = RedexF VarLabel
 
 derive instance Eq Redex
 instance Show Redex where
@@ -34,11 +43,6 @@ flipRedex (Redex x y) = (Redex y x)
 
 sortRedex :: Redex -> Redex
 sortRedex r@(Redex x y) = if x < y then r else flipRedex r
-
-instance HasVars Redex where
-  getVars (Redex t1 t2) = S.union (getVars t1) (getVars t2)
-  mapVars = mapRedexVars
-  rename varMap (Redex x y) = Redex (rename varMap x) (rename varMap y)
 
 data Net = Net { root :: Tree, redexes :: Array Redex }
 
@@ -61,10 +65,7 @@ reduce original@(Redex Epsilon t) = pure $ case t of
   (Gamma g) -> erase g
   (Delta g) -> erase g
   _ -> [ original ]
-reduce original@(Redex t Epsilon) = pure $ case t of
-  (Gamma g) -> erase g
-  (Delta g) -> erase g
-  _ -> [ original ]
+reduce (Redex t Epsilon) = reduce (Redex Epsilon t)
 -- ANNIHILATE
 reduce (Redex (Gamma x) (Gamma y)) = pure $ annihilate x y
 reduce (Redex (Delta x) (Delta y)) = pure $ annihilate x y
@@ -99,11 +100,11 @@ reduceArr = map reduceAll >>> join
 
 getVarRedex :: Redex -> Maybe { varLabel :: VarLabel, tree :: Tree, redex :: Redex }
 getVarRedex redex@(Redex (Var s) tree) = Just { varLabel: s, tree, redex }
-getVarRedex redex@(Redex tree (Var s)) = Just { varLabel: s, tree, redex }
+getVarRedex (Redex tree (Var s)) = getVarRedex (Redex (Var s) tree)
 getVarRedex _ = Nothing
 
 mapRedexVars :: (VarLabel -> Tree) -> Redex -> Redex
-mapRedexVars f (Redex x y) = Redex (mapVars f x) (mapVars f y)
+mapRedexVars f (Redex x y) = Redex (mapTreeVars f x) (mapTreeVars f y)
 
 substitute :: Array Redex -> Array Redex
 substitute [ r ] = [ r ]

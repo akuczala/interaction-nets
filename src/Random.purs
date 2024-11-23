@@ -19,11 +19,12 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.State (State, gets, modify_)
 import Data.Array as A
+import Data.Foldable (class Foldable)
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Nets (class HasVars, Redex(..), Tree(..), getVars, makeDelta, makeGamma, mapVars, newVar, rename)
+import Nets (Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, newVar, rename)
 import Nets.Tree (VarGenState)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
@@ -109,9 +110,9 @@ randomRedex i = do
   vars <- liftState $ gets (A.fromFoldable <<< _.vars)
   nConnections <- randomInt 0 (div (A.length vars) 2)
   connections <- randomPairing nConnections vars
-  pure $ mapVars (\v -> Var $ fromMaybe v $ M.lookup v connections) redex
+  pure $ rename connections redex
 
-randomlyRenamed :: forall r a. HasVars a => a -> Run (RANDOM + r) a
+randomlyRenamed :: forall r f a. Ord a => Functor f => Foldable f => f a -> Run (RANDOM + r) (f a)
 randomlyRenamed r = do
   let vars = A.fromFoldable $ getVars r
   shuffledVars <- randomPermutation vars
