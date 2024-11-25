@@ -27,8 +27,6 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.State (class MonadState, State, evalState, gets, modify, modify_)
-import Data.Array (all, zipWithA)
-import Data.Array as A
 import Data.Bifunctor (bimap)
 import Data.Foldable (class Foldable, foldMapDefaultL)
 import Data.Lens (Lens')
@@ -46,18 +44,8 @@ import Utils (Bimap, bimapInsert)
 getVars :: forall a t. Ord a => Foldable t => t a -> Set a
 getVars = S.fromFoldable
 
-class Isomorphic a where
-  isomorphic :: a -> a -> State (Bimap VarLabel) Boolean
-
-
--- TODO test
-instance (Ord a, Isomorphic a) => Isomorphic (Array a) where
-  isomorphic xs ys =
-    let
-      xss = A.sort xs
-      yss = A.sort ys
-    in
-      map (all identity) $ zipWithA isomorphic xss yss
+class Isomorphic t a where
+  isomorphic :: t a -> t a -> State (Bimap a) Boolean
 
 type VarLabel = String
 
@@ -178,7 +166,7 @@ newVar = do
 
 -- walk both trees together and add variable equivalences to a set
 -- terminate if equivalences are inconsistent
-instance Isomorphic Tree where
+instance Ord a => Isomorphic TreeF a where
   isomorphic t1 t2 = case [ t1, t2 ] of
     [ Gamma x, Gamma y ] -> pairIso x y
     [ Delta x, Delta y ] -> pairIso x y
@@ -197,7 +185,9 @@ instance Isomorphic Tree where
         _ -> pure false
 
     lookup
-      :: VarLabel
-      -> VarLabel
-      -> State (Bimap VarLabel) (Tuple (Maybe VarLabel) (Maybe VarLabel))
+      :: forall a
+      . Ord a
+      => a
+      -> a
+      -> State (Bimap a) (Tuple (Maybe a) (Maybe a))
     lookup s1 s2 = gets $ bimap (M.lookup s1) (M.lookup s2)

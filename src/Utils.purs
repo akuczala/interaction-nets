@@ -4,6 +4,8 @@ module Utils
   , bimapInsert
   , emptyBimap
   , fixedPoint
+  , fixedPointOn
+  , fixedPointPred
   , liftState
   , symmInsert
   ) where
@@ -21,12 +23,18 @@ import Run.State (STATE)
 import Run.State as Run.State
 import Type.Row (type (+))
 
-fixedPoint :: forall a. Eq a => (a -> a) -> (a -> a)
-fixedPoint f = fixed
+fixedPointPred :: forall a. (a -> a -> Boolean) -> (a -> a) -> (a -> a)
+fixedPointPred p f = fixed
   where
-  fixed a = if nextA == a then a else fixed nextA
+  fixed a = if p a nextA then a else fixed nextA
     where
     nextA = f a
+
+fixedPointOn :: forall a b. Ord b => (a -> b) -> (a -> a) -> (a -> a)
+fixedPointOn g = fixedPointPred (\a a' -> g a == g a')
+
+fixedPoint :: forall a. Eq a => (a -> a) -> (a -> a)
+fixedPoint = fixedPointPred (==)
 
 type SymmMap k = Map k k
 

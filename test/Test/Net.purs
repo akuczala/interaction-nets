@@ -7,9 +7,10 @@ module Test.Net
 import Prelude
 
 import Control.Monad.State (evalState)
+import Control.Plus (empty)
 import Data.Foldable (class Foldable)
 import Effect (Effect)
-import Nets (Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceArr, substitute)
+import Nets (Net, NetF(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceNet, substitute)
 import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
 import Run.State as Run.State
@@ -54,8 +55,10 @@ testIsomorphism = do
 
 testReduce :: Effect Unit
 testReduce = do
-  let reduced = fixedPoint (reduceArr >>> substitute) [redex2]
-  quickCheck' 1 $ evalIso reduced [Redex (Var "theroot") (lambdaId "joined")]
+  let (Net reduced) = fixedPoint (reduceNet >>> substitute) net2
+  let expected = (lambdaId "x") 
+  quickCheck' 1 $ reduced.redexes == empty <?> show reduced <> " not simplified"
+  quickCheck' 1 $ evalIso reduced.root expected <?> msg reduced.root expected
 
 lambdaId :: VarLabel -> Tree
 lambdaId s = makeGamma (Var s) (Var s)
@@ -65,8 +68,8 @@ lambdaApplySelf = makeGamma
   (makeDelta (Var "x1") (makeGamma (Var "x1") (Var "bod")))
   (Var "bod")
 
-redex2 :: Redex
-redex2 = Redex lambdaApplySelf (makeGamma (lambdaId "a") (Var "root"))
+net2 :: Net
+net2 = Net {root: (Var "root"), redexes: [Redex lambdaApplySelf (makeGamma (lambdaId "a") (Var "root"))]}
 
 newtype RandomTree = RandomTree Tree
 newtype RandomRedex = RandomRedex Redex
