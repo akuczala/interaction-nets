@@ -24,8 +24,8 @@ import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Nets (Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, newVar, rename)
-import Nets.Tree (VarGenState)
+import Net (Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, newVar, rename)
+import Net.Tree (VarGenState)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run

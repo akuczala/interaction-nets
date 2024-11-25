@@ -1,4 +1,4 @@
-module Nets.Tree
+module Net.Tree
   ( Pair
   , Tree(..)
   , TreeF(..)

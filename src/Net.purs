@@ -1,11 +1,11 @@
-module Nets
+module Net
   ( Net
   , NetF(..)
   , Redex
   , RedexF(..)
   , evalIso
   , flipRedex
-  , module Nets.Tree
+  , module Net.Tree
   , reduce
   , reduceAll
   , reduceArr
@@ -13,7 +13,7 @@ module Nets
   , substitute
   ) where
 
-import Nets.Tree
+import Net.Tree
 import Prelude
 
 import Control.Apply (lift2)

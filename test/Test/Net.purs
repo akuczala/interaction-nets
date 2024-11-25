@@ -10,7 +10,7 @@ import Control.Monad.State (evalState)
 import Control.Plus (empty)
 import Data.Foldable (class Foldable)
 import Effect (Effect)
-import Nets (Net, NetF(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceNet, substitute)
+import Net (Net, NetF(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceNet, substitute)
 import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
 import Run.State as Run.State
