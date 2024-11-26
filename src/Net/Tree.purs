@@ -1,5 +1,8 @@
 module Net.Tree
-  ( Pair
+  ( BinaryNode(..)
+  , NullaryNode(..)
+  , Operator(..)
+  , Pair
   , Tree(..)
   , TreeF(..)
   , TreePair
@@ -14,7 +17,9 @@ module Net.Tree
   , initVarGenState
   , isomorphic
   , makeDelta
+  , makeEpsilon
   , makeGamma
+  , makeOperator
   , makePair
   , mapTreeVars
   , newVar
@@ -52,10 +57,24 @@ type VarLabel = String
 type Pair a = { fst :: a, snd :: a }
 -- derive instance Functor Pair
 
+data Operator = Add | Sub | Mul | Div
+
+derive instance Eq Operator
+instance Show Operator where
+ show Add = "+"
+ show Sub = "-"
+ show Mul = "*"
+ show Div = "/"
+
+data BinaryNode = Gamma | Delta | Operator Operator
+derive instance Eq BinaryNode
+
+data NullaryNode = Epsilon | Num Number
+derive instance Eq NullaryNode
+
 data TreeF a
-  = Gamma (Pair (TreeF a))
-  | Delta (Pair (TreeF a))
-  | Epsilon
+  = Binary BinaryNode (Pair (TreeF a))
+  | Nullary NullaryNode
   | Var a
 derive instance Functor TreeF
 
@@ -68,25 +87,22 @@ instance Applicative TreeF where
 instance Bind TreeF where
  bind t f = case t of
   Var v -> f v
-  Epsilon -> Epsilon
-  Gamma g -> makeGamma (bind g.fst f) (bind g.snd f)
-  Delta g -> makeDelta (bind g.fst f) (bind g.snd f)
+  Nullary n -> Nullary n
+  Binary b p -> Binary b $ makePair (bind p.fst f) (bind p.snd f)
 
 instance Monad TreeF
 
 foldlTree :: forall b a. (b -> a -> b) -> b -> TreeF a -> b
 foldlTree f b0 t = case t of
-      Var a -> f b0 a
-      Epsilon -> b0
-      Gamma g -> foldlTree f (foldlTree f b0 g.fst) g.snd
-      Delta g -> foldlTree f (foldlTree f b0 g.fst) g.snd
+  Var a -> f b0 a
+  Nullary _ -> b0
+  Binary _ p -> foldlTree f (foldlTree f b0 p.fst) p.snd
 
 foldrTree :: forall b a. (a -> b -> b) -> b -> TreeF a -> b
 foldrTree f b0 t = case t of
-      Var a -> f a b0
-      Epsilon -> b0
-      Gamma g -> foldrTree f (foldrTree f b0 g.snd) g.fst
-      Delta g -> foldrTree f (foldrTree f b0 g.snd) g.fst
+  Var a -> f a b0
+  Nullary _ -> b0
+  Binary _ p -> foldrTree f (foldrTree f b0 p.snd) p.fst
 
 instance Foldable TreeF where
     foldl = foldlTree
@@ -100,9 +116,15 @@ type Tree = TreeF VarLabel
 derive instance Eq a => Eq (TreeF a)
 
 instance Show (Tree) where
-  show (Gamma g) = "(" <> show g.fst <> ", " <> show g.snd <> ")"
-  show (Delta d) = "{" <> show d.fst <> ", " <> show d.snd <> "}"
-  show (Epsilon) = "•"
+  show (Binary b p) = x.leftBracket <> show p.fst <> x.sep <> show p.snd <> x.rightBracket
+    where
+    x = case b of
+      Gamma -> {leftBracket: "(", rightBracket: ")", sep: ", "}
+      Delta -> {leftBracket: "{", rightBracket: "}", sep: ", "}
+      Operator o -> {leftBracket: "[", rightBracket: "]", sep: " " <> show o <> " "}
+  show (Nullary n) = case n of
+    Epsilon -> "•"
+    Num x -> show x
   show (Var s) = s
 
 instance (Eq (TreeF a), Show (TreeF a)) => Ord (TreeF a) where
@@ -112,10 +134,16 @@ makePair :: forall a. a -> a -> Pair a
 makePair a b = { fst: a, snd: b }
 
 makeGamma :: forall a. TreeF a -> TreeF a -> TreeF a
-makeGamma a b = Gamma $ makePair a b
+makeGamma a b = Binary Gamma $ makePair a b
 
 makeDelta :: forall a. TreeF a -> TreeF a -> TreeF a
-makeDelta a b = Delta $ makePair a b
+makeDelta a b = Binary Delta $ makePair a b
+
+makeEpsilon :: forall a. TreeF a
+makeEpsilon = Nullary Epsilon
+
+makeOperator :: forall a. Operator -> TreeF a -> TreeF a -> TreeF a
+makeOperator o a b = Binary (Operator o) $ makePair a b
 
 
 mapTreeVars :: forall a. (a -> TreeF a) -> TreeF a -> TreeF a
@@ -132,11 +160,7 @@ varGen :: String -> String
 varGen x = succ x
 
 addVarsFromTree :: forall a. Ord a =>  TreeF a -> Set a -> Set a
-addVarsFromTree (Var s) = S.insert s
-addVarsFromTree (Epsilon) = identity
-addVarsFromTree (Gamma g) = addVarsFromTree g.fst <<< addVarsFromTree g.snd
-
-addVarsFromTree (Delta d) = addVarsFromTree d.fst <<< addVarsFromTree d.snd
+addVarsFromTree t = S.union (getVars t)
 
 findNextVar :: VarLabel -> (Set VarLabel) -> VarLabel
 findNextVar x s = go x
@@ -168,9 +192,8 @@ newVar = do
 -- terminate if equivalences are inconsistent
 instance Ord a => Isomorphic TreeF a where
   isomorphic t1 t2 = case [ t1, t2 ] of
-    [ Gamma x, Gamma y ] -> pairIso x y
-    [ Delta x, Delta y ] -> pairIso x y
-    [ Epsilon, Epsilon ] -> pure true
+    [ Binary b1 p1, Binary b2 p2 ] -> if b1 == b2 then pairIso p1 p2 else pure false
+    [ Nullary n1, Nullary n2 ] -> pure (n1 == n2)
     [ Var x, Var y ] -> varIso x y
     _ -> pure false
     where

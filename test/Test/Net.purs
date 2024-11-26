@@ -10,7 +10,7 @@ import Control.Monad.State (evalState)
 import Control.Plus (empty)
 import Data.Foldable (class Foldable)
 import Effect (Effect)
-import Net (Net, NetF(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeGamma, reduceNet, substitute)
+import Net (Net, NetF(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeEpsilon, makeGamma, reduceNet, substitute)
 import Random (_random, randomRedex, randomTree, randomlyRenamed)
 import Run (case_, interpret, on)
 import Run.State as Run.State
@@ -30,10 +30,10 @@ testIsomorphismCase = do
   let b = Var "b"
   let c = Var "c"
   let d = Var "d"
-  let t1 = (makeGamma (makeGamma (makeGamma b c) Epsilon) d)
-  let t2 = (makeGamma (makeGamma (makeGamma d b) Epsilon) c)
+  let t1 = (makeGamma (makeGamma (makeGamma b c) makeEpsilon) d)
+  let t2 = (makeGamma (makeGamma (makeGamma d b) makeEpsilon) c)
   quickCheck $ assertEquals true $ evalState (isomorphic t1 t2) emptyBimap
-  let t3 = (makeGamma (makeGamma (makeGamma d b) Epsilon) b)
+  let t3 = (makeGamma (makeGamma (makeGamma d b) makeEpsilon) b)
   quickCheck $ assertNotEquals true $ evalState (isomorphic t1 t3) emptyBimap
 
 msg :: forall a. Show a => a -> a -> String

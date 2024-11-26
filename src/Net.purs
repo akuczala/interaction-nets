@@ -64,34 +64,32 @@ initReduceState = initVarGenState
 annihilate :: TreePair -> TreePair -> Array Redex
 annihilate x y = [ Redex x.fst y.fst, Redex x.snd y.snd ]
 
-erase :: TreePair -> Array Redex
-erase x = [ Redex Epsilon x.fst, Redex Epsilon x.snd ]
+erase :: NullaryNode -> TreePair -> Array Redex
+erase n x = [ Redex (Nullary n) x.fst, Redex (Nullary n) x.snd ]
 
 reduce :: Redex -> State ReduceState (Array Redex)
 -- VOID
-reduce (Redex Epsilon Epsilon) = pure []
+reduce (Redex (Nullary _) (Nullary _)) = pure []
 -- ERASE
-reduce original@(Redex Epsilon t) = pure $ case t of
-  (Gamma g) -> erase g
-  (Delta g) -> erase g
+reduce original@(Redex (Nullary n) t) = pure $ case t of
+  (Binary _ g) -> erase n g
   _ -> [ original ]
-reduce (Redex t Epsilon) = reduce (Redex Epsilon t)
--- ANNIHILATE
-reduce (Redex (Gamma x) (Gamma y)) = pure $ annihilate x y
-reduce (Redex (Delta x) (Delta y)) = pure $ annihilate x y
--- COMMUTE
-reduce (Redex (Gamma g) (Delta d)) = do
-  x <- newVar
-  y <- newVar
-  z <- newVar
-  w <- newVar
-  pure
-    [ Redex (makeDelta (Var x) (Var y)) g.fst
-    , Redex (makeDelta (Var z) (Var w)) g.snd
-    , Redex (makeGamma (Var x) (Var z)) d.fst
-    , Redex (makeGamma (Var y) (Var w)) d.snd
-    ]
-reduce (Redex (Delta d) (Gamma g)) = reduce (Redex (Gamma g) (Delta d))
+reduce (Redex t (Nullary n)) = reduce (Redex (Nullary n) t)
+reduce (Redex (Binary b1 p1) (Binary b2 p2)) =
+  -- ANNIHILATE
+  if b1 == b2 then pure $ annihilate p1 p2
+  -- COMMUTE
+  else do
+    x <- newVar
+    y <- newVar
+    z <- newVar
+    w <- newVar
+    pure
+      [ Redex (Binary b2 $ makePair (Var x) (Var y)) p1.fst
+      , Redex (Binary b2 $ makePair (Var z) (Var w)) p1.snd
+      , Redex (Binary b1 $ makePair (Var x) (Var z)) p2.fst
+      , Redex (Binary b1 $ makePair (Var y) (Var w)) p2.snd
+      ]
 -- OTHERWISE
 reduce r@(Redex (Var _) _) = pure [ r ]
 reduce r@(Redex _ (Var _)) = pure [ r ]
@@ -156,4 +154,3 @@ instance Ord a => Isomorphic RedexF a where
       liftIso r1 (flipRedex r2)
     where
     liftIso (Redex x1 y1) (Redex x2 y2) = (lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2))
-

@@ -25,7 +25,7 @@ import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
 import Net (Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, newVar, rename)
-import Net.Tree (VarGenState)
+import Net.Tree (VarGenState, makeEpsilon)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
 import Run as Run
@@ -98,7 +98,7 @@ randomTree i = do
   case rand of
     0 -> do
       rv <- randomUniform
-      if rv < 0.2 then pure Epsilon else map Var (liftState newVar)
+      if rv < 0.2 then pure makeEpsilon else map Var (liftState newVar)
     _ -> do
       rb <- randomBool
       let op = if rb then makeGamma else makeDelta
