@@ -1,6 +1,6 @@
 check:
 	spago build
-	purs-tidy format-in-place src/*.purs
+	purs-tidy format-in-place src/**/*.purs
 
 build:
 	spago build

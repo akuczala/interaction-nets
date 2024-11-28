@@ -1,11 +1,10 @@
 module Net
   ( Net
   , NetF(..)
-  , Redex
-  , RedexF(..)
   , evalIso
-  , flipRedex
   , module Net.Tree
+  , module Net.Parser
+  , module Net.Redex
   , reduce
   , reduceAll
   , reduceArr
@@ -15,10 +14,11 @@ module Net
   ) where
 
 import Net.Tree
+import Net.Redex
+import Net.Parser
 import Prelude
 
-import Control.Apply (lift2)
-import Control.Monad.State (State, evalState, get, modify_, put, runState)
+import Control.Monad.State (State, evalState, modify_)
 import Data.Array (filter)
 import Data.Either (Either(..))
 import Data.Foldable (class Foldable, all, foldMapDefaultL, foldl, foldr, oneOfMap)
@@ -26,30 +26,7 @@ import Data.Lens.Zoom (zoom)
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Tuple (Tuple(..))
 import Utils (emptyBimap)
-
-data RedexF a = Redex (TreeF a) (TreeF a)
-
-derive instance Functor RedexF
-
-instance Foldable RedexF where
-  foldl f b0 (Redex l r) = foldl f (foldl f b0 l) r
-  foldr f b0 (Redex l r) = foldr f (foldr f b0 r) l
-  foldMap = foldMapDefaultL
-
-type Redex = RedexF VarLabel
-
-derive instance Eq a => Eq (RedexF a)
-
-instance Show Redex where
-  show (Redex x y) = show x <> " ~ " <> show y
-
-flipRedex :: forall a. (RedexF a) -> (RedexF a)
-flipRedex (Redex x y) = (Redex y x)
-
-sortRedex :: Redex -> Redex
-sortRedex r@(Redex x y) = if x < y then r else flipRedex r
 
 newtype NetF a = Net { root :: TreeF a, redexes :: Array (RedexF a) }
 
@@ -133,32 +110,8 @@ substitute (Net net) = case net.redexes of
       , redexes: map (mapRedexVars subs) $ filter (\r -> r /= redex) redexes
       }
 
-instance Ord Redex where
-  compare r1 r2 =
-    let
-      (Redex x1 y1) = sortRedex r1
-      (Redex x2 y2) = sortRedex r2
-    in
-      case compare x1 x2 of
-        EQ -> compare y1 y2
-        x -> x
-
 evalIso :: forall t a. Isomorphic t a => t a -> t a -> Boolean
 evalIso x y = evalState (isomorphic x y) emptyBimap
-
--- Given (A ~ B), (C ~ D), first check tree isomorphisms A <-> C & B <-> D
--- then try A <-> D and B <-> C
-instance Ord a => Isomorphic RedexF a where
-  isomorphic r1 r2 = do
-    varMap <- get
-    let Tuple isIso s = runState (liftIso r1 r2) varMap
-    if isIso then do
-      put s
-      pure true
-    else
-      liftIso r1 (flipRedex r2)
-    where
-    liftIso (Redex x1 y1) (Redex x2 y2) = (lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2))
 
 validateNetVars :: forall a t. Ord a => Foldable t => t a -> Either (Map a Int) (Map a Int)
 validateNetVars t = do

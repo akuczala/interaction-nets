@@ -28,8 +28,7 @@ module Net.Tree
   , rename
   , validateVars
   , varGen
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -63,7 +62,6 @@ validateVars t = foldr go (Right M.empty) t
     if count < 2 then Right newVarCount
     else Left newVarCount
 
-
 class Isomorphic t a where
   isomorphic :: t a -> t a -> State (Bimap a) Boolean
 
@@ -76,21 +74,24 @@ data Operator = Add | Sub | Mul | Div
 
 derive instance Eq Operator
 instance Show Operator where
- show Add = "+"
- show Sub = "-"
- show Mul = "*"
- show Div = "/"
+  show Add = "+"
+  show Sub = "-"
+  show Mul = "*"
+  show Div = "/"
 
 data BinaryNode = Gamma | Delta | Operator Operator
+
 derive instance Eq BinaryNode
 
 data NullaryNode = Epsilon | Num Number
+
 derive instance Eq NullaryNode
 
 data TreeF a
   = Binary BinaryNode (Pair (TreeF a))
   | Nullary NullaryNode
   | Var a
+
 derive instance Functor TreeF
 
 instance Apply TreeF where
@@ -100,10 +101,10 @@ instance Applicative TreeF where
   pure = Var
 
 instance Bind TreeF where
- bind t f = case t of
-  Var v -> f v
-  Nullary n -> Nullary n
-  Binary b p -> Binary b $ makePair (bind p.fst f) (bind p.snd f)
+  bind t f = case t of
+    Var v -> f v
+    Nullary n -> Nullary n
+    Binary b p -> Binary b $ makePair (bind p.fst f) (bind p.snd f)
 
 instance Monad TreeF
 
@@ -120,9 +121,9 @@ foldrTree f b0 t = case t of
   Binary _ p -> foldrTree f (foldrTree f b0 p.snd) p.fst
 
 instance Foldable TreeF where
-    foldl = foldlTree
-    foldr = foldrTree
-    foldMap = foldMapDefaultL
+  foldl = foldlTree
+  foldr = foldrTree
+  foldMap = foldMapDefaultL
 
 type TreePair = Pair Tree
 
@@ -134,9 +135,9 @@ instance Show (Tree) where
   show (Binary b p) = x.leftBracket <> show p.fst <> x.sep <> show p.snd <> x.rightBracket
     where
     x = case b of
-      Gamma -> {leftBracket: "(", rightBracket: ")", sep: ", "}
-      Delta -> {leftBracket: "{", rightBracket: "}", sep: ", "}
-      Operator o -> {leftBracket: "[", rightBracket: "]", sep: " " <> show o <> " "}
+      Gamma -> { leftBracket: "(", rightBracket: ")", sep: " " }
+      Delta -> { leftBracket: "{", rightBracket: "}", sep: " " }
+      Operator o -> { leftBracket: "[", rightBracket: "]", sep: " " <> show o <> " " }
   show (Nullary n) = case n of
     Epsilon -> "•"
     Num x -> show x
@@ -166,19 +167,14 @@ makeNumber x = Nullary (Num x)
 mapTreeVars :: forall a. (a -> TreeF a) -> TreeF a -> TreeF a
 mapTreeVars = flip bind
 
--- instance HasVars Tree where
---   getVars t = addVarsFromTree t S.empty
---   mapVars = mapTreeVars
-
 evalTree :: forall a. TreeF a -> TreeF a
-evalTree (Binary (Operator o) {fst: Nullary (Num x), snd: Nullary (Num y)})
-  = Nullary $ Num (op x y)
+evalTree (Binary (Operator o) { fst: Nullary (Num x), snd: Nullary (Num y) }) = Nullary $ Num (op x y)
   where
-    op = case o of
-      Add -> (+)
-      Sub -> (-)
-      Mul -> (*)
-      Div -> (/)
+  op = case o of
+    Add -> (+)
+    Sub -> (-)
+    Mul -> (*)
+    Div -> (/)
 evalTree x = x
 
 rename :: forall t a. Ord a => Functor t => Map a a -> t a -> t a
@@ -187,7 +183,7 @@ rename varMap t = map (\s -> fromMaybe s (M.lookup s varMap)) t
 varGen :: String -> String
 varGen x = succ x
 
-addVarsFromTree :: forall a. Ord a =>  TreeF a -> Set a -> Set a
+addVarsFromTree :: forall a. Ord a => TreeF a -> Set a -> Set a
 addVarsFromTree t = S.union (getVars t)
 
 findNextVar :: VarLabel -> (Set VarLabel) -> VarLabel
@@ -237,7 +233,7 @@ instance Ord a => Isomorphic TreeF a where
 
     lookup
       :: forall a
-      . Ord a
+       . Ord a
       => a
       -> a
       -> State (Bimap a) (Tuple (Maybe a) (Maybe a))

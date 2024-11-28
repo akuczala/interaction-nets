@@ -12,6 +12,7 @@ package:
     - profunctor-lenses
     - random
     - run
+    - string-parsers
     - strings
     - transformers
     - tuples

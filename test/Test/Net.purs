@@ -1,6 +1,6 @@
 module Test.Net
-  ( 
-  testNet
+  ( RandomTree(..)
+  , testNet
   )
   where
 
@@ -66,6 +66,7 @@ testValidation :: Effect Unit
 testValidation = do
   quickCheck $ \(RandomTree t) -> isRight $ validateVars t
   quickCheck $ \(RandomRedex r) -> isRight $ validateVars r
+
 msg :: forall a. Show a => a -> a -> String
 msg a b = show a <> " and " <> show b <> " not isomorphic"
 testIsomorphism :: Effect Unit
