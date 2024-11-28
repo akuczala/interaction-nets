@@ -12,6 +12,7 @@ module Net.Tree
   , _vars
   , addVarsFromTree
   , class Isomorphic
+  , evalTree
   , evalVarGen
   , getVars
   , initVarGenState
@@ -19,11 +20,13 @@ module Net.Tree
   , makeDelta
   , makeEpsilon
   , makeGamma
+  , makeNumber
   , makeOperator
   , makePair
   , mapTreeVars
   , newVar
   , rename
+  , validateVars
   , varGen
   )
   where
@@ -33,7 +36,8 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.State (class MonadState, State, evalState, gets, modify, modify_)
 import Data.Bifunctor (bimap)
-import Data.Foldable (class Foldable, foldMapDefaultL)
+import Data.Either (Either(..))
+import Data.Foldable (class Foldable, foldMapDefaultL, foldr)
 import Data.Lens (Lens')
 import Data.Lens.Record (prop)
 import Data.Map (Map)
@@ -48,6 +52,17 @@ import Utils (Bimap, bimapInsert)
 
 getVars :: forall a t. Ord a => Foldable t => t a -> Set a
 getVars = S.fromFoldable
+
+validateVars :: forall a t. Ord a => Foldable t => t a -> Either (Map a Int) (Map a Int)
+validateVars t = foldr go (Right M.empty) t
+  where
+  go x vars = do
+    xs <- vars
+    let count = fromMaybe 0 (M.lookup x xs)
+    let newVarCount = M.insert x (count + 1) xs
+    if count < 2 then Right newVarCount
+    else Left newVarCount
+
 
 class Isomorphic t a where
   isomorphic :: t a -> t a -> State (Bimap a) Boolean
@@ -145,6 +160,8 @@ makeEpsilon = Nullary Epsilon
 makeOperator :: forall a. Operator -> TreeF a -> TreeF a -> TreeF a
 makeOperator o a b = Binary (Operator o) $ makePair a b
 
+makeNumber :: forall a. Number -> TreeF a
+makeNumber x = Nullary (Num x)
 
 mapTreeVars :: forall a. (a -> TreeF a) -> TreeF a -> TreeF a
 mapTreeVars = flip bind
@@ -152,6 +169,17 @@ mapTreeVars = flip bind
 -- instance HasVars Tree where
 --   getVars t = addVarsFromTree t S.empty
 --   mapVars = mapTreeVars
+
+evalTree :: forall a. TreeF a -> TreeF a
+evalTree (Binary (Operator o) {fst: Nullary (Num x), snd: Nullary (Num y)})
+  = Nullary $ Num (op x y)
+  where
+    op = case o of
+      Add -> (+)
+      Sub -> (-)
+      Mul -> (*)
+      Div -> (/)
+evalTree x = x
 
 rename :: forall t a. Ord a => Functor t => Map a a -> t a -> t a
 rename varMap t = map (\s -> fromMaybe s (M.lookup s varMap)) t

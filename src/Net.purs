@@ -11,6 +11,7 @@ module Net
   , reduceArr
   , reduceNet
   , substitute
+  , validateNetVars
   ) where
 
 import Net.Tree
@@ -19,8 +20,11 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.State (State, evalState, get, modify_, put, runState)
 import Data.Array (filter)
-import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr, oneOfMap)
+import Data.Either (Either(..))
+import Data.Foldable (class Foldable, all, foldMapDefaultL, foldl, foldr, oneOfMap)
 import Data.Lens.Zoom (zoom)
+import Data.Map (Map)
+import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Utils (emptyBimap)
@@ -51,6 +55,13 @@ newtype NetF a = Net { root :: TreeF a, redexes :: Array (RedexF a) }
 
 derive instance Eq a => Eq (NetF a)
 
+instance Foldable NetF where
+  foldl f b0 (Net n) = foldl (foldl f) (foldl f b0 n.root) n.redexes
+  foldr f b0 (Net n) = foldr f (foldr g b0 n.redexes) n.root
+    where
+    g r b = foldr f b r
+  foldMap = foldMapDefaultL
+
 type Net = NetF VarLabel
 
 instance Show Net where
@@ -61,23 +72,17 @@ type ReduceState = VarGenState
 initReduceState :: ReduceState
 initReduceState = initVarGenState
 
-annihilate :: TreePair -> TreePair -> Array Redex
-annihilate x y = [ Redex x.fst y.fst, Redex x.snd y.snd ]
-
-erase :: NullaryNode -> TreePair -> Array Redex
-erase n x = [ Redex (Nullary n) x.fst, Redex (Nullary n) x.snd ]
-
 reduce :: Redex -> State ReduceState (Array Redex)
 -- VOID
 reduce (Redex (Nullary _) (Nullary _)) = pure []
 -- ERASE
 reduce original@(Redex (Nullary n) t) = pure $ case t of
-  (Binary _ g) -> erase n g
+  (Binary _ p) -> [ Redex (Nullary n) p.fst, Redex (Nullary n) p.snd ]
   _ -> [ original ]
 reduce (Redex t (Nullary n)) = reduce (Redex (Nullary n) t)
 reduce (Redex (Binary b1 p1) (Binary b2 p2)) =
   -- ANNIHILATE
-  if b1 == b2 then pure $ annihilate p1 p2
+  if b1 == b2 then pure $ [ Redex p1.fst p2.fst, Redex p1.snd p2.snd ]
   -- COMMUTE
   else do
     x <- newVar
@@ -154,3 +159,9 @@ instance Ord a => Isomorphic RedexF a where
       liftIso r1 (flipRedex r2)
     where
     liftIso (Redex x1 y1) (Redex x2 y2) = (lift2 (&&) (isomorphic x1 x2) (isomorphic y1 y2))
+
+validateNetVars :: forall a t. Ord a => Foldable t => t a -> Either (Map a Int) (Map a Int)
+validateNetVars t = do
+  varCounts <- validateVars t
+  if all (eq 2) $ M.values varCounts then Right varCounts
+  else Left varCounts
