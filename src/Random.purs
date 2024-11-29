@@ -19,12 +19,14 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.State (State, gets, modify_)
 import Data.Array as A
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NA
 import Data.Foldable (class Foldable)
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Net (Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, newVar, rename)
+import Net (Operator(..), Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, makeOperator, newVar, rename)
 import Net.Tree (VarGenState, makeEpsilon)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
@@ -53,6 +55,11 @@ randomInt low high = Run.lift _random (RandomInt low high identity)
 
 randomBool :: forall r. Run (RANDOM + r) Boolean
 randomBool = Run.lift _random (RandomBool identity)
+
+randomChoice :: forall r a. NonEmptyArray a -> Run (RANDOM + r) a
+randomChoice arr = do
+  randIndex <- randomInt 0 (NA.length arr - 1)
+  pure $ fromMaybe (NA.head arr) $ NA.index arr randIndex
 
 randomCombination :: forall r a. Int -> Array a -> Run (RANDOM + r) (Array a)
 randomCombination 0 _ = pure []
@@ -92,6 +99,9 @@ runRandom = interpret (on _random handleRandom send)
 -- runPseudoRandom :: forall r. Run (RANDOM + r) ~> Run (EFFECT + r)
 -- runRandom = interpret (on _random handleRandom send)
 
+ops :: NonEmptyArray Operator
+ops = fromMaybe (NA.singleton Add) $ NA.fromArray $ [Add, Sub, Mul, Div]
+
 randomTree :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Tree
 randomTree i = do
   rand <- randomInt 0 i
@@ -99,10 +109,13 @@ randomTree i = do
     0 -> do
       rv <- randomUniform
       if rv < 0.2 then pure makeEpsilon else map Var (liftState newVar)
-    _ -> do
-      rb <- randomBool
-      let op = if rb then makeGamma else makeDelta
-      lift2 op (randomTree $ i - 1) (randomTree $ i - 1)
+    _otherwise -> do
+      ri <- randomInt 0 2
+      bin <- case ri of
+           0 -> pure makeGamma
+           1 -> pure makeDelta
+           _ -> makeOperator <$> randomChoice ops
+      lift2 bin (randomTree $ i - 1) (randomTree $ i - 1)
 
 randomRedex :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Redex
 randomRedex i = do

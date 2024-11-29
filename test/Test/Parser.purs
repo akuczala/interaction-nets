@@ -7,13 +7,27 @@ import Prelude
 
 import Data.Either (Either(..))
 import Effect (Effect)
-import Net.Parser (parseTree)
-import Test.Net (RandomTree(..))
+import Net.Parser (parseRedex, parseTree)
+import Test.Net (RandomRedex(..), RandomTree(..))
 import Test.QuickCheck (quickCheck, (<?>))
 
 testParser :: Effect Unit
 testParser = do
-  quickCheck $ \(RandomTree r) ->
-    let parsed = parseTree (show r)
+  testParseTree
+  testParseRedex
+
+testParseTree :: Effect Unit
+testParseTree = do
+  quickCheck $ \(RandomTree t) ->
+    let parsed = parseTree (show t)
     in
-      parsed == Right r <?> "Parsed tree " <> show parsed <> " doesn't match original " <> show r
+      parsed == Right t
+      <?> "Parsed tree " <> show parsed <> " doesn't match original " <> show t
+
+testParseRedex :: Effect Unit
+testParseRedex = do
+  quickCheck $ \(RandomRedex r) ->
+    let parsed = parseRedex (show r)
+    in
+      parsed == Right r
+      <?> "Parsed redex " <> show parsed <> " doesn't match original " <> show r

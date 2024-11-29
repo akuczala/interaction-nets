@@ -1,5 +1,6 @@
 module Test.Net
   ( RandomTree(..)
+  , RandomRedex(..)
   , testNet
   )
   where
@@ -14,8 +15,8 @@ import Effect (Effect)
 import Effect.Class.Console (logShow)
 import Net (Net, NetF(..), Operator(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeEpsilon, makeGamma, makeOperator, reduceNet, substitute, validateNetVars)
 import Net.Tree (makeNumber, validateVars)
-import Random (_random, randomRedex, randomTree, randomlyRenamed)
-import Run (case_, interpret, on)
+import Random (_random, randomRedex, randomTree, randomlyRenamed, runRandom)
+import Run (case_, interpret, on, runBaseEffect)
 import Run.State as Run.State
 import Test.QuickCheck (class Arbitrary, assertEquals, assertNotEquals, quickCheck, quickCheck', (<?>))
 import Test.QuickCheck.Gen (repeatable)
@@ -50,6 +51,8 @@ testNet = do
     testIsomorphism
     testValidation
     testMath
+    t <- runBaseEffect $ runRandom $ Run.State.evalState initVarGenState $ randomTree 4
+    logShow t
 
 testIsomorphismCase :: Effect Unit
 testIsomorphismCase = do
