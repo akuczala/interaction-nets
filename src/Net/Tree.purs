@@ -68,7 +68,10 @@ class Isomorphic t a where
 type VarLabel = String
 
 type Pair a = { fst :: a, snd :: a }
+
 -- derive instance Functor Pair
+mapPair :: forall a b. (a -> b) -> Pair a -> Pair b
+mapPair f p = { fst: f p.fst, snd: f p.snd }
 
 data Operator = Add | Sub | Mul | Div
 
@@ -175,6 +178,7 @@ evalTree (Binary (Operator o) { fst: Nullary (Num x), snd: Nullary (Num y) }) = 
     Sub -> (-)
     Mul -> (*)
     Div -> (/)
+evalTree (Binary b p) = Binary b $ mapPair (evalTree) p
 evalTree x = x
 
 rename :: forall t a. Ord a => Functor t => Map a a -> t a -> t a

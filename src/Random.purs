@@ -22,11 +22,12 @@ import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NA
 import Data.Foldable (class Foldable)
+import Data.Int (toNumber)
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (fromMaybe)
 import Effect.Random as R
-import Net (Operator(..), Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeGamma, makeOperator, newVar, rename)
+import Net (Operator(..), Redex, RedexF(..), Tree, TreeF(..), getVars, makeDelta, makeEpsilon, makeGamma, makeNumber, makeOperator, newVar, rename)
 import Net.Tree (VarGenState, makeEpsilon)
 import Random.LCG (Seed, lcgNext, unSeed)
 import Run (Run, EFFECT, interpret, liftEffect, on, send)
@@ -72,7 +73,12 @@ randomCombination n arr = do
 randomPermutation :: forall r a. Array a -> Run (RANDOM + r) (Array a)
 randomPermutation arr = randomCombination (A.length arr) arr
 
-randomPairing :: forall r a. Ord a => Int -> Array a -> Run (RANDOM + r) (Map a a)
+randomPairing
+  :: forall r a
+  . Ord a
+  => Int
+  -> Array a
+  -> Run (RANDOM + r) (Map a a)
 randomPairing nPairs vars = do
   --nConnections <- randomInt 0 (div (A.length vars) 2)
   connectVars <- randomCombination (nPairs * 2) vars
@@ -103,19 +109,17 @@ ops :: NonEmptyArray Operator
 ops = fromMaybe (NA.singleton Add) $ NA.fromArray $ [Add, Sub, Mul, Div]
 
 randomTree :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Tree
-randomTree i = do
-  rand <- randomInt 0 i
-  case rand of
-    0 -> do
-      rv <- randomUniform
-      if rv < 0.2 then pure makeEpsilon else map Var (liftState newVar)
-    _otherwise -> do
-      ri <- randomInt 0 2
-      bin <- case ri of
-           0 -> pure makeGamma
-           1 -> pure makeDelta
-           _ -> makeOperator <$> randomChoice ops
-      lift2 bin (randomTree $ i - 1) (randomTree $ i - 1)
+randomTree 0 = randomInt 0 2 >>= case _ of
+    0 -> pure makeEpsilon
+    1 -> map Var $ liftState newVar
+    _ -> makeNumber <<< toNumber <$> randomInt 0 10  -- TODO include -
+randomTree n = do
+  bin <- randomInt 0 2 >>= case _ of
+    0 -> pure makeGamma
+    1 -> pure makeDelta
+    _ -> makeOperator <$> randomChoice ops
+  leftSize <- randomInt 0 (n - 1)
+  lift2 bin (randomTree leftSize) (randomTree $ (n - 1) - leftSize)
 
 randomRedex :: forall r. Int -> Run (STATE VarGenState + RANDOM + r) Redex
 randomRedex i = do
@@ -125,7 +129,13 @@ randomRedex i = do
   connections <- randomPairing nConnections vars
   pure $ rename connections redex
 
-randomlyRenamed :: forall r f a. Ord a => Functor f => Foldable f => f a -> Run (RANDOM + r) (f a)
+randomlyRenamed
+  :: forall r f a
+  . Ord a
+  => Functor f
+  => Foldable f
+  => f a
+  -> Run (RANDOM + r) (f a)
 randomlyRenamed r = do
   let vars = A.fromFoldable $ getVars r
   shuffledVars <- randomPermutation vars

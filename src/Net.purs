@@ -1,34 +1,41 @@
 module Net
   ( Net
   , NetF(..)
+  , _redexes
+  , _root
   , evalIso
-  , module Net.Tree
   , module Net.Parser
   , module Net.Redex
+  , module Net.Tree
   , reduce
   , reduceAll
   , reduceArr
   , reduceNet
   , substitute
   , validateNetVars
-  ) where
+  )
+  where
 
-import Net.Tree
-import Net.Redex
 import Net.Parser
+import Net.Redex
+import Net.Tree
 import Prelude
 
 import Control.Monad.State (State, evalState, modify_)
 import Data.Array (filter)
 import Data.Either (Either(..))
 import Data.Foldable (class Foldable, all, foldMapDefaultL, foldl, foldr, oneOfMap)
-import Data.Lens.Zoom (zoom)
+import Data.Lens (lens)
+import Data.Lens.Zoom (Lens', zoom)
 import Data.Map (Map)
 import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (class Newtype, unwrap)
 import Utils (emptyBimap)
 
 newtype NetF a = Net { root :: TreeF a, redexes :: Array (RedexF a) }
+
+instance Newtype (NetF a) { root :: TreeF a, redexes :: Array (RedexF a) }
 
 derive instance Eq a => Eq (NetF a)
 
@@ -43,6 +50,12 @@ type Net = NetF VarLabel
 
 instance Show Net where
   show (Net n) = "Net " <> show n
+
+_root :: Lens' Net Tree
+_root = lens (unwrap >>> _.root) (\(Net n) t -> Net $ n {root = t})
+
+_redexes :: Lens' Net (Array Redex)
+_redexes = lens (unwrap >>> _.redexes) (\(Net n) r -> Net $ n {redexes = r})
 
 type ReduceState = VarGenState
 

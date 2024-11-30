@@ -1,6 +1,7 @@
 module Test.Net
-  ( RandomTree(..)
-  , RandomRedex(..)
+  ( RandomRedex(..)
+  , RandomTree(..)
+  , assign
   , testNet
   )
   where
@@ -9,11 +10,13 @@ import Prelude
 
 import Control.Monad.State (evalState)
 import Control.Plus (empty)
+import Data.Array (range, (..))
 import Data.Either (isRight)
-import Data.Foldable (class Foldable)
+import Data.Foldable (class Foldable, for_)
+import Data.Lens (over, view)
 import Effect (Effect)
 import Effect.Class.Console (logShow)
-import Net (Net, NetF(..), Operator(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, evalIso, flipRedex, initVarGenState, isomorphic, makeDelta, makeEpsilon, makeGamma, makeOperator, reduceNet, substitute, validateNetVars)
+import Net (Net, NetF(..), Operator(..), Redex, RedexF(..), Tree, TreeF(..), VarLabel, VarGenState, _redexes, _root, evalIso, evalTree, flipRedex, initVarGenState, isomorphic, makeDelta, makeEpsilon, makeGamma, makeNumber, makeOperator, reduceNet, substitute, validateNetVars)
 import Net.Tree (makeNumber, validateVars)
 import Random (_random, randomRedex, randomTree, randomlyRenamed, runRandom)
 import Run (case_, interpret, on, runBaseEffect)
@@ -51,8 +54,6 @@ testNet = do
     testIsomorphism
     testValidation
     testMath
-    t <- runBaseEffect $ runRandom $ Run.State.evalState initVarGenState $ randomTree 4
-    logShow t
 
 testIsomorphismCase :: Effect Unit
 testIsomorphismCase = do
@@ -94,28 +95,39 @@ testReduce = do
   quickCheck' 1 $ reduced.redexes == empty <?> show reduced <> " not simplified"
   quickCheck' 1 $ evalIso reduced.root expected <?> msg reduced.root expected
 
+double :: VarLabel -> Net
+double v = Net {
+  root: lambdaNode v (makeOperator Add (Var $ v <> "a") (Var $ v <> "b")),
+  redexes: [Redex (Var v) (makeDelta (Var $ v <> "a") (Var $ v <> "b"))]
+  }
+
+assign :: VarLabel -> Tree -> Redex
+assign v t = Redex (Var v) t
+
+applyNet :: (Tree -> Redex) -> Net -> Net -> Net
+applyNet f (Net s) n = over _redexes (_ <> s.redexes <> [f s.root]) n
+
 testMath :: Effect Unit
 testMath = do
-  let double v = lambdaNode v (makeOperator Add (Var $ v <> "1") (Var $ v <> "2"))
-  let branch v = Redex (Var v) (makeDelta (Var $ v <> "1") (Var $ v <> "2"))
-  let net = Net {
-    root: Var "out", redexes: [
-      branch "x",
-      branch "z",
-      applyNode (double "x") (Var "y") "out",
-      applyNode (double "z") (makeNumber 3.0) "y"
-      ]
-      }
+  let net =
+        applyNet (applyNode (makeNumber 3.0) "y") (double "z") $
+        applyNet (applyNode (Var "y") "out") (double "x") $
+        Net {
+          root: Var "out",
+          redexes: []
+        }
   let validated = validateNetVars net
-  quickCheck' 1 $ (isRight validated) <?> "Invalid net " <> show net <> " -- " <> show validated
   logShow net
-  logShow $ (fixedPoint $ reduceNet >>> substitute) net
+  quickCheck' 1 $ (isRight validated) <?> "Invalid net " <> show net <> " -- " <> show validated
+  let reduced = (fixedPoint $ reduceNet >>> substitute) net
+  let evaluated = (fixedPoint evalTree) <<< view _root $ reduced
+  quickCheck' 1 $ makeNumber 12.0 == evaluated
 
 lambdaNode :: VarLabel -> Tree -> Tree
 lambdaNode v = makeGamma (Var v)
 
-applyNode :: Tree -> Tree -> VarLabel -> Redex
-applyNode f arg outVar = Redex f (makeGamma arg (Var outVar))
+applyNode :: Tree -> VarLabel -> Tree -> Redex
+applyNode arg outVar f = Redex f (makeGamma arg (Var outVar))
 
 lambdaId :: VarLabel -> Tree
 lambdaId s = makeGamma (Var s) (Var s)

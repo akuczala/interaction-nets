@@ -5,6 +5,7 @@ module Net.Parser
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Lazy (fix)
 import Data.Either (Either)
 import Data.List ((:))
@@ -23,9 +24,8 @@ charsToString :: NonEmptyList Char -> String
 charsToString = fromCharArray <<< toUnfoldable
 
 number :: Parser Number
--- TODO implement
 number = do
-  x <- fromString <<< charsToString <$> many1 anyDigit <?> "number"
+  x <- fromString <<< charsToString <$> (many1 (anyDigit <|> char '.')) <?> "number"
   case x of
     Just s -> pure s
     Nothing -> fail "Could not parse number"
